@@ -115,6 +115,11 @@ pub fn prepare_sync() -> Result<String, String> {
 }
 
 fn run_prepare(app: Option<AppHandle>) -> Result<String, String> {
+    // 已经解压过就直接用，不重复下 100MB。
+    if let Some((ver, exe)) = detect::prepared_version() {
+        emit(app.as_ref(), "phase", format!("已备好 Codex {ver}，跳过下载"));
+        return Ok(format!("{ver} ({})", exe.display()));
+    }
     let dest = codex_dir();
     std::fs::create_dir_all(&dest).map_err(|e| format!("创建目录失败：{e}"))?;
     emit(app.as_ref(), "phase", "正在从国内镜像下载 Codex（约 100MB，请保持网络）…");
