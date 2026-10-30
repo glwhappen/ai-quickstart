@@ -21,6 +21,24 @@
 测通之后给「启动 Codex」按钮：在新终端窗口里带上 `CODEX_HOME` 启动，用户不用知道 PATH。
 底部「高级 / 清理」里有「清理并退出」——删掉本工具产生的全部文件，等于卸载。
 
+## deep link：从网页一键回填 Key
+
+程序注册了 URL scheme **`codexquick`**。官网（cc.hsfp.cn）的 Key 卡片上点「填入 Codex 快速配置」，
+会跳到：
+
+```
+codexquick://set-key?key=sk-xxxx&group=半价
+```
+
+本程序收到后**自动填入输入框**并提示「已从网页填入 Key，点『测一下』验证」，用户不用复制粘贴。
+
+- 参数名固定：scheme=`codexquick`、host/path=`set-key`、参数 `key` / `group`（官网侧按这个对齐）。
+- 幂等：重复点只覆盖同一个 Key；程序已在运行时会复用同一个窗口（`single-instance`）。
+- 安全：**日志里只有「尾号 xxxx（长度 n）」，`rg 'sk-' 日志` 是空的**；非法/缺参数的链接忽略并给中性提示，不崩。
+- 手动粘贴的兜底路径一直都在。
+
+命令行自检：`codex-quickstart --headless deeplink 'codexquick://set-key?key=sk-xxx&group=半价'`
+
 ## 写进配置的东西
 
 `<数据目录>/codex-quickstart/codex-home/config.toml`：

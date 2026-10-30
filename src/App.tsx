@@ -54,6 +54,8 @@ type TestResult = {
 type StepState = "wait" | "active" | "done" | "fail";
 
 const SITE = "https://cc.hsfp.cn/";
+/// 领 Key 页（官网那边已有 SSO + 一键领取，Key 卡片上会放「填入 Codex 快速配置」按钮跳 deep link）
+const KEY_PAGE = "https://cc.hsfp.cn/#key";
 const STORE_URL = "https://apps.microsoft.com/search?query=Codex";
 const OFFICIAL_URL = "https://chatgpt.com/codex";
 
@@ -73,6 +75,7 @@ export default function App() {
   const [launchInfo, setLaunchInfo] = useState<string | null>(null);
   const [cleanInfo, setCleanInfo] = useState<string | null>(null);
   const [showDesktop, setShowDesktop] = useState(false);
+  const [deepLinkInfo, setDeepLinkInfo] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement | null>(null);
 
   const refresh = useCallback(async () => {
@@ -86,6 +89,30 @@ export default function App() {
 
   useEffect(() => {
     void refresh();
+    // 官网点「填入 Codex 快速配置」→ codexquick://set-key?key=...&group=...
+    const unKey = listen<{ key: string; group: string | null }>("deep-link-key", (ev) => {
+      const { key, group } = ev.payload;
+      setKey(key);
+      setSaveInfo(null);
+      setSaveError(null);
+      setTest(null);
+      setDeepLinkInfo(
+        `已从网页填入 Key（${key.slice(0, 8)}…${key.slice(-4)}${group ? ` · ${group}` : ""}），点「测一下」验证`,
+      );
+    });
+    const unErr = listen<{ message: string }>("deep-link-error", (ev) => {
+      setDeepLinkInfo(`网页传来的链接没派上用场：${ev.payload.message}`);
+    });
+    // 冷启动（程序是被 deep link 拉起来的）：事件在 webview 加载前就发过了，这里补取一次。
+    void invoke<{ key: string; group: string | null } | null>("take_pending_key").then((pending) => {
+      if (!pending) return;
+      setKey(pending.key);
+      setDeepLinkInfo(
+        `已从网页填入 Key（${pending.key.slice(0, 8)}…${pending.key.slice(-4)}${
+          pending.group ? ` · ${pending.group}` : ""
+        }），点「测一下」验证`,
+      );
+    });
     const un = listen<{ level: string; line: string }>("prepare-log", (ev) => {
       if (ev.payload.level === "tick") {
         setLog((prev) => [...prev.filter((l) => !l.startsWith("已等待")), ev.payload.line]);
@@ -95,6 +122,8 @@ export default function App() {
     });
     return () => {
       void un.then((f) => f());
+      void unKey.then((f) => f());
+      void unErr.then((f) => f());
     };
   }, [refresh]);
 
@@ -303,11 +332,18 @@ export default function App() {
                 setKey(e.target.value);
                 setSaveInfo(null);
                 setSaveError(null);
+                setDeepLinkInfo(null);
               }}
             />
-            <button className="btn ghost small" onClick={() => open(SITE)}>
-              去领一个 Key →
-            </button>
+            <div className="row">
+              <button className="btn ghost small" onClick={() => open(KEY_PAGE)}>
+                快速领取 Key（网页上一键填入）→
+              </button>
+              <button className="btn ghost small" onClick={() => open(SITE)}>
+                或打开官网手动复制
+              </button>
+            </div>
+            {deepLinkInfo && <p className="ok small">{deepLinkInfo}</p>}
 
             <button
               className="btn primary"

@@ -351,3 +351,9 @@ p.tiny {
 details.tiny > summary {
   font-size: 12px;
 }
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

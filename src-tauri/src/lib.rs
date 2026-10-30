@@ -1,6 +1,9 @@
 mod commands;
 
+use tauri::Emitter;
+
 use commands::config::{self, ConfigInfo, WriteResult};
+use commands::deeplink;
 use commands::detect::{self, EnvStatus};
 use commands::launch;
 use commands::prepare;
@@ -48,7 +51,15 @@ async fn launch_codex() -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn cleanup() -> Result<String, String> {
+async fn cleanup(app: tauri::AppHandle) -> Result<String, String> {
+    // 绿色版：卸载时把 scheme 注册也撤掉，不在系统里留东西。
+    {
+        use tauri_plugin_deep_link::DeepLinkExt;
+        // 插件没有 unregister_all，逐个撤（与 tauri.conf.json 里的 schemes 对齐）。
+        if let Err(e) = app.deep_link().unregister("codexquick") {
+            println!("[deeplink] 注销 scheme 失败：{e}");
+        }
+    }
     launch::cleanup()
 }
 
@@ -60,11 +71,83 @@ async fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// 冷启动时 deep link 在 webview 还没加载完就来了，事件会丢；
+/// 所以同时留一份「待取回」的 Key，前端挂载后调 `take_pending_key` 取走。
+#[derive(Default)]
+struct PendingKey(std::sync::Mutex<Option<deeplink::DeepLinkKey>>);
+
+#[tauri::command]
+fn take_pending_key(state: tauri::State<'_, PendingKey>) -> Option<deeplink::DeepLinkKey> {
+    state.0.lock().ok().and_then(|mut g| g.take())
+}
+
+/// 把 deep link 里的 Key 交给界面（只发事件，不落盘、不写日志原文）。
+fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
+    match deeplink::parse_set_key(raw) {
+        Ok(found) => {
+            // 日志里只允许出现掩码
+            println!(
+                "[deeplink] 收到 set-key：{}（group={}）",
+                deeplink::mask(&found.key),
+                found.group.as_deref().unwrap_or("-")
+            );
+            {
+                use tauri::Manager;
+                if let Some(state) = app.try_state::<PendingKey>() {
+                    if let Ok(mut g) = state.0.lock() {
+                        *g = Some(found.clone());
+                    }
+                }
+            }
+            let _ = app.emit(
+                "deep-link-key",
+                serde_json::json!({ "key": found.key, "group": found.group }),
+            );
+        }
+        Err(msg) => {
+            println!("[deeplink] 忽略：{msg}（原文不入日志）");
+            let _ = app.emit("deep-link-error", serde_json::json!({ "message": msg }));
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // single-instance 必须是第一个插件（官方要求），否则「程序已在跑时又点官网按钮」收不到转发。
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // 程序已经在跑时又点了一次官网按钮：把新链接里的 Key 灌进已有窗口。
+            for arg in argv.iter().filter(|a| a.starts_with("codexquick://")) {
+                handle_deep_link(app, arg);
+            }
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
+        .manage(PendingKey::default())
+        .setup(|app| {
+            use tauri_plugin_deep_link::DeepLinkExt;
+            // 绿色版：注册随程序走（Windows 写 HKCU、Linux 写用户级 .desktop），清理时注销。
+            let handle = app.handle().clone();
+            if let Err(e) = handle.deep_link().register_all() {
+                println!("[deeplink] 注册 scheme 失败（不影响手动粘贴）：{e}");
+            }
+            // 冷启动：程序是被 deep link 拉起来的，链接在 current 里。
+            if let Ok(Some(urls)) = handle.deep_link().get_current() {
+                for u in urls {
+                    handle_deep_link(&handle, u.as_str());
+                }
+            }
+            // 运行中：再点官网按钮触发。
+            let handle2 = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for u in event.urls() {
+                    handle_deep_link(&handle2, u.as_str());
+                }
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
+            take_pending_key,
             check_environment,
             prepare_codex,
             read_config,
@@ -127,6 +210,18 @@ pub fn headless(args: &[String]) -> i32 {
                 "data_root": env.data_root,
             })
             .to_string())
+        }
+        "deeplink" => {
+            let raw = args.get(1).cloned().unwrap_or_default();
+            match deeplink::parse_set_key(&raw) {
+                Ok(found) => Ok(serde_json::json!({
+                    "ok": true,
+                    "key_masked": deeplink::mask(&found.key),
+                    "group": found.group,
+                })
+                .to_string()),
+                Err(msg) => Ok(serde_json::json!({ "ok": false, "message": msg }).to_string()),
+            }
         }
         "launch" => launch::launch_codex(),
         "cleanup" => launch::cleanup(),

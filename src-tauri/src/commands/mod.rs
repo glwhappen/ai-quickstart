@@ -1,4 +1,5 @@
 pub mod config;
+pub mod deeplink;
 pub mod detect;
 pub mod launch;
 pub mod prepare;

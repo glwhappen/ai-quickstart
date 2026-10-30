@@ -1,13 +1,22 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Codex Quickstart",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "identifier": "cn.hsfp.codexquickstart",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5183",
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build"
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "codexquick"
+        ]
+      }
+    }
   },
   "app": {
     "windows": [
