@@ -382,11 +382,40 @@ fn read_key() -> Option<(String, String)> {
 }
 
 fn meaningful(text: &str) -> String {
-    let lines: Vec<&str> = text
-        .lines()
-        .map(str::trim)
+    let lines: Vec<&str> = text.lines().map(str::trim).collect();
+    // `codex exec` 的输出：正文在最后一段 `codex` 标记之后、`tokens used` 之前。
+    if let Some(idx) = lines.iter().rposition(|l| *l == "codex") {
+        let body: Vec<&str> = lines[idx + 1..]
+            .iter()
+            .copied()
+            .take_while(|l| *l != "tokens used")
+            .filter(|l| !l.is_empty())
+            .collect();
+        if !body.is_empty() {
+            return body.join(" ");
+        }
+    }
+    // 兜底：滤掉噪音行
+    lines
+        .iter()
+        .copied()
         .filter(|l| !l.is_empty())
-        .filter(|l| !l.starts_with("Reading") && !l.to_lowercase().starts_with("openai codex"))
-        .collect();
-    lines.join(" ")
+        .filter(|l| {
+            let low = l.to_lowercase();
+            !low.starts_with("warning")
+                && !low.starts_with("reading")
+                && !low.starts_with("openai codex")
+                && !low.starts_with("workdir")
+                && !low.starts_with("model:")
+                && !low.starts_with("provider:")
+                && !low.starts_with("approval")
+                && !low.starts_with("sandbox")
+                && !low.starts_with("reasoning")
+                && !low.starts_with("session id")
+                && *l != "--------"
+                && *l != "user"
+        })
+        .take(3)
+        .collect::<Vec<_>>()
+        .join(" ")
 }

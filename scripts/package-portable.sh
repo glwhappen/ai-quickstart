@@ -19,6 +19,8 @@ case "$OS" in
 esac
 
 if [ "${1:-}" != "--skip-build" ]; then
+  # 必须走 tauri CLI：它会带 `custom-protocol` feature，否则产物会去连 devUrl
+  # （direct `cargo build --release` 出来的可执行文件会报 "Could not connect to localhost"）。
   . "$HOME/.cargo/env"
   pnpm tauri build --no-bundle
 fi

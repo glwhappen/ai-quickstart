@@ -53,8 +53,7 @@ pub fn launch_codex() -> Result<String, String> {
             use std::os::windows::process::CommandExt;
             cmd.creation_flags(0x0800_0000);
         }
-        cmd.spawn()
-            .map_err(|e| format!("打开终端失败：{e}"))?;
+        cmd.spawn().map_err(|e| format!("打开终端失败：{e}"))?;
         return Ok(format!("已在新窗口启动 Codex {ver}"));
     }
 
@@ -74,16 +73,35 @@ pub fn launch_codex() -> Result<String, String> {
             ("gnome-terminal", vec!["--", &p]),
             ("konsole", vec!["-e", &p]),
             ("xfce4-terminal", vec!["-x", &p]),
+            ("mate-terminal", vec!["-x", &p]),
+            ("lxterminal", vec!["-e", &p]),
             ("xterm", vec!["-e", &p]),
         ];
+        let mut tried: Vec<String> = Vec::new();
         for (bin, args) in candidates {
             let mut cmd = Command::new(bin);
             cmd.args(args);
-            if cmd.spawn().is_ok() {
-                return Ok(format!("已在 {bin} 窗口启动 Codex {ver}"));
+            match cmd.spawn() {
+                Ok(mut child) => {
+                    // 终端程序存在但立刻失败（没 DISPLAY、缺参数）时继续试下一个，
+                    // 别谎报「已启动」。
+                    std::thread::sleep(std::time::Duration::from_millis(700));
+                    match child.try_wait() {
+                        Ok(Some(st)) if !st.success() => {
+                            tried.push(format!("{bin}(退出码{})", st.code().unwrap_or(-1)));
+                        }
+                        _ => return Ok(format!("已在 {bin} 窗口启动 Codex {ver}")),
+                    }
+                }
+                Err(e) => tried.push(format!("{bin}({e})")),
             }
         }
-        Err("没找到可用的终端程序（试过 x-terminal-emulator / gnome-terminal / konsole / xfce4-terminal / xterm）".to_string())
+        Err(format!(
+            "没找到可用的终端程序（试过：{}）。你也可以自己开终端，把 CODEX_HOME 指到 {} 后运行 {}",
+            tried.join(" / "),
+            home.display(),
+            exe.display()
+        ))
     }
 }
 
