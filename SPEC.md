@@ -1,8 +1,14 @@
-# AI 快速配置（ai-quickstart）SPEC
+# aiquick SPEC
 
-> **2026-10-30 改名**：原 `Codex 快速配置 / codex-quickstart`。郭老师指出「后面可能不止 codex」，
-> 所以产品名去掉 Codex，改为通用的 **「AI 快速配置」**；英文标识 `ai-quickstart`；deep link scheme `aiquick`；
-> 主页域名 `setup.hsfp.cn`。当前只实现 Codex 一条线，但**架构上必须能加下一个工具（如 Claude Code）而不用推倒重来**。
+> **2026-10-30 改名（两次）**：`Codex 快速配置 / codex-quickstart` → `AI 快速配置 / ai-quickstart` → 最终定名 **`aiquick`**。
+> 郭老师：「太长了，aiquick吧」。所以：
+> - 产品显示名：**`aiquick`**
+> - 英文标识 / 包名 / 二进制名：**`aiquick`**
+> - deep link scheme：**`aiquick://`**
+> - 主页域名：**`aiquick.hsfp.cn`**
+> - 仓库：`glwhappen/aiquick`
+>
+> 当前只实现 Codex 一条线，但**架构上必须能加下一个工具（如 Claude Code）而不用推倒重来**。
 
 > 2026-10-30 郭老师立的新项目。旧项目 `/root/ccs-brand`（fork CC Switch）**只作经验参考，不复用代码形态**。
 
@@ -60,7 +66,7 @@
 
 原话意译：「名字感觉可以换一下，后面可能不止 codex」。
 
-- 产品名不带任何工具名：**「AI 快速配置」**。
+- 产品名不带任何工具名：**`aiquick`**。
 - 内部数据结构按「**工具（tool）**」抽象：每个 tool 有自己的检测方式、准备/安装方式、配置写入方式（目标文件 + 片段）、验证命令。
   当前只实现 `codex` 一个；**加 `claude`（Claude Code）时应当是"加一个 tool 定义"，不是改主流程**。
 - 界面上主路径仍然「一键搞定」，不要因为要支持多工具就变回多选界面：默认只做用户当前关心的那一个，
@@ -169,7 +175,7 @@ Authorization = "Bearer <user-key>"
 
 - **Tauri 2 + React**（经验现成，安装包 ~5–10MB，远小于 CC Switch 的 45MB）。
 - **单窗口、单页、五个状态**（检查中 / 待安装 / 待配置 / 待测试 / 完成），不需要侧栏、不需要路由。
-- 白牌：界面叫「**AI 快速配置**」，不出现任何厂商品牌与工具名；不叫 CC Switch、不叫 HSFP Code、也不叫 Codex 快速配置。
+- 白牌：界面叫「**aiquick**」，不出现任何厂商品牌与工具名；不叫 CC Switch、不叫 HSFP Code、也不叫 Codex 快速配置。
 - 白色亮色主题、按钮大、字大、留白多，窗口 480×620 左右就够。
 - 失败态必须可复制错误文本，不许无限转圈。
 
