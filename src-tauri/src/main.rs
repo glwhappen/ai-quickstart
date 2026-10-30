@@ -1,29 +1,31 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
+// Windows 上必须是 console 子系统，`--headless`（主页/排障/脚本）才能被 cmd 等待并读到 stdout。
+// 代价是双击运行会闪一下黑窗，所以进 GUI 前立刻把控制台窗口隐藏并释放。
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if let Some(pos) = args.iter().position(|a| a == "--headless") {
-        // 绿色版是 GUI 子系统程序（双击不弹黑窗），代价是没有 stdout。
-        // `--headless` 被脚本/主页调用时要能读到输出，所以先挂到父进程的控制台。
-        #[cfg(target_os = "windows")]
-        attach_parent_console();
         std::process::exit(codex_quickstart_lib::headless(&args[pos + 1..]));
     }
+    #[cfg(target_os = "windows")]
+    hide_console_for_gui();
     codex_quickstart_lib::run()
 }
 
-/// 把标准输出/错误接到父进程的控制台（仅 Windows，仅 --headless 时调用）。
+/// 双击启动时把附带的控制台窗口藏起来（等价于 GUI 子系统的观感）。
 #[cfg(target_os = "windows")]
-fn attach_parent_console() {
-    const ATTACH_PARENT_PROCESS: u32 = 0xFFFF_FFFF;
+fn hide_console_for_gui() {
     unsafe extern "system" {
-        fn AttachConsole(dwProcessId: u32) -> i32;
+        fn GetConsoleWindow() -> *mut core::ffi::c_void;
+        fn ShowWindow(hwnd: *mut core::ffi::c_void, cmd: i32) -> i32;
+        fn FreeConsole() -> i32;
         fn SetConsoleOutputCP(wCodePageID: u32) -> i32;
     }
     unsafe {
-        // 已经在控制台里时 AttachConsole 会失败，这时什么都不用做。
-        if AttachConsole(ATTACH_PARENT_PROCESS) != 0 {
-            SetConsoleOutputCP(65001); // UTF-8，免得中文乱码
+        let hwnd = GetConsoleWindow();
+        if !hwnd.is_null() {
+            ShowWindow(hwnd, 0); // SW_HIDE
+            FreeConsole();
         }
+        // 万一控制台还在（从终端里手动启动），把输出设成 UTF-8，中文不打码
+        SetConsoleOutputCP(65001);
     }
 }
