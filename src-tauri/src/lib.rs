@@ -5,6 +5,7 @@ use tauri::Emitter;
 use commands::config::{self, ConfigInfo, WriteResult};
 use commands::deeplink;
 use commands::scheme;
+use commands::sso;
 use commands::detect::{self, EnvStatus};
 use commands::launch;
 use commands::prepare;
@@ -44,6 +45,22 @@ async fn write_config(key: String, also_desktop: bool) -> Result<WriteResult, St
 #[tauri::command]
 async fn run_test(key: Option<String>) -> TestResult {
     test::run_test(key).await
+}
+
+/// 内嵌 SSO：浏览器登录 → 回环回调 → 换 Key（失败时前端退回手动粘贴）。
+#[tauri::command]
+async fn sso_obtain_key(app: tauri::AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri_plugin_opener::OpenerExt;
+        let opener = |url: &str| -> Result<(), String> {
+            app.opener()
+                .open_url(url, None::<&str>)
+                .map_err(|e| format!("打开系统浏览器失败：{e}"))
+        };
+        sso::obtain_key(&opener, std::time::Duration::from_secs(180))
+    })
+    .await
+    .map_err(|e| format!("登录线程异常：{e}"))?
 }
 
 #[tauri::command]
@@ -115,7 +132,7 @@ pub fn run() {
         // single-instance 必须是第一个插件（官方要求），否则「程序已在跑时又点官网按钮」收不到转发。
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             // 程序已经在跑时又点了一次官网按钮：把新链接里的 Key 灌进已有窗口。
-            for arg in argv.iter().filter(|a| a.starts_with("codexquick://")) {
+            for arg in argv.iter().filter(|a| a.starts_with("aiquick://")) {
                 handle_deep_link(app, arg);
             }
         }))
@@ -149,6 +166,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             take_pending_key,
+            sso_obtain_key,
             check_environment,
             prepare_codex,
             read_config,
@@ -163,7 +181,7 @@ pub fn run() {
 }
 
 /// 无界面模式：与界面共用同一套函数，供自动化验收（假 HOME、真 Key、错 Key）使用。
-/// 用法：`codex-quickstart --headless <check|prepare|config|test|launch|cleanup> [--key sk-...] [--also-desktop]`
+/// 用法：`ai-quickstart --headless <check|prepare|config|test|launch|cleanup> [--key sk-...] [--also-desktop]`
 pub fn headless(args: &[String]) -> i32 {
     let cmd = args.first().map(String::as_str).unwrap_or("");
     let key = args
@@ -199,6 +217,7 @@ pub fn headless(args: &[String]) -> i32 {
         "status" => {
             let env = detect::check_environment();
             let cfg = config::read_config();
+            let tool_status = commands::tools::primary().status();
             let codex_ready = env.codex.prepared;
             let key_configured = cfg.has_key;
             Ok(serde_json::json!({
@@ -209,6 +228,7 @@ pub fn headless(args: &[String]) -> i32 {
                 "model": cfg.model,
                 "config_path": cfg.path,
                 "data_root": env.data_root,
+                "tool": tool_status,
             })
             .to_string())
         }
@@ -224,6 +244,7 @@ pub fn headless(args: &[String]) -> i32 {
                 Err(msg) => Ok(serde_json::json!({ "ok": false, "message": msg }).to_string()),
             }
         }
+        "sso" => sso::debug_info().and_then(|v| serde_json::to_string_pretty(&v).map_err(|e| e.to_string())),
         "register-scheme" => scheme::register(),
         "unregister-scheme" => scheme::unregister(),
         "launch" => launch::launch_codex(),

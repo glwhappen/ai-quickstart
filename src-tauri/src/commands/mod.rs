@@ -4,14 +4,16 @@ pub mod detect;
 pub mod launch;
 pub mod prepare;
 pub mod scheme;
+pub mod sso;
 pub mod test;
+pub mod tools;
 
 use std::path::PathBuf;
 
 /// 本工具自己的数据根目录（绿色版：全部产物都在这里，删掉即卸载）。
-/// `CODEX_QUICKSTART_HOME` 可覆盖，便于用假 HOME 做验收。
+/// `AIQUICK_HOME` 可覆盖，便于用假 HOME 做验收。
 pub fn data_root() -> PathBuf {
-    if let Ok(v) = std::env::var("CODEX_QUICKSTART_HOME") {
+    if let Ok(v) = std::env::var("AIQUICK_HOME") {
         if !v.trim().is_empty() {
             return PathBuf::from(v);
         }
@@ -20,7 +22,7 @@ pub fn data_root() -> PathBuf {
     {
         if let Ok(v) = std::env::var("LOCALAPPDATA") {
             if !v.trim().is_empty() {
-                return PathBuf::from(v).join("codex-quickstart");
+                return PathBuf::from(v).join("ai-quickstart");
             }
         }
     }
@@ -29,19 +31,19 @@ pub fn data_root() -> PathBuf {
         return home_dir()
             .join("Library")
             .join("Application Support")
-            .join("codex-quickstart");
+            .join("ai-quickstart");
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
         if let Ok(v) = std::env::var("XDG_DATA_HOME") {
             if !v.trim().is_empty() {
-                return PathBuf::from(v).join("codex-quickstart");
+                return PathBuf::from(v).join("ai-quickstart");
             }
         }
-        return home_dir().join(".local").join("share").join("codex-quickstart");
+        return home_dir().join(".local").join("share").join("ai-quickstart");
     }
     #[allow(unreachable_code)]
-    home_dir().join(".codex-quickstart")
+    home_dir().join(".ai-quickstart")
 }
 
 pub fn home_dir() -> PathBuf {
@@ -69,19 +71,18 @@ pub fn home_dir() -> PathBuf {
     PathBuf::from(".")
 }
 
-/// 解压出来的 Codex 各版本目录（`<version>/bin/codex`）。
+/// 当前主工具的数据目录（解压产物）。
 pub fn codex_dir() -> PathBuf {
-    data_root().join("codex")
+    tools::primary().dir()
 }
 
-/// 隔离的 `CODEX_HOME`：我们的 config.toml 与 Codex 运行时文件都落这里，
-/// 用户的 `~/.codex` 一个字节都不动。
+/// 当前主工具的隔离配置目录（启动时作为 `CODEX_HOME` 注入）。
 pub fn codex_home() -> PathBuf {
-    data_root().join("codex-home")
+    tools::primary().home()
 }
 
 pub fn config_path() -> PathBuf {
-    codex_home().join("config.toml")
+    tools::primary().config_path()
 }
 
 /// 用户自己的 Codex 配置目录（只有桌面版的可选开关会碰它）。

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Codex Quickstart",
-  "version": "0.2.1",
-  "identifier": "cn.hsfp.codexquickstart",
+  "productName": "AI Quickstart",
+  "version": "0.3.0",
+  "identifier": "cn.hsfp.aiquick",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5183",
@@ -13,7 +13,7 @@
     "deep-link": {
       "desktop": {
         "schemes": [
-          "codexquick"
+          "aiquick"
         ]
       }
     }
@@ -22,7 +22,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Codex 快速配置",
+        "title": "AI 快速配置",
         "width": 500,
         "height": 660,
         "minWidth": 480,

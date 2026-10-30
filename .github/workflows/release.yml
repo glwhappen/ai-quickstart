@@ -86,9 +86,9 @@ jobs:
           $version = "${{ github.event.inputs.version }}"
           if (-not $version) { $version = "${{ github.ref_name }}" -replace '^v', '' }
           if (-not $version) { $version = '0.1.0' }
-          $name = "codex-quickstart-$version-windows-x86_64"
+          $name = "ai-quickstart-$version-windows-x86_64"
           New-Item -ItemType Directory -Path "out/$name" -Force | Out-Null
-          Copy-Item "src-tauri/target/release/codex-quickstart.exe" "out/$name/" -Force
+          Copy-Item "src-tauri/target/release/ai-quickstart.exe" "out/$name/" -Force
           Copy-Item "SPEC.md" "out/$name/README-SPEC.md" -Force
           Copy-Item "README.md" "out/$name/README.md" -Force
           Compress-Archive -Path "out/$name" -DestinationPath "out/$name.zip" -Force
@@ -103,9 +103,9 @@ jobs:
           VERSION="${{ github.event.inputs.version }}"
           if [ -z "$VERSION" ]; then VERSION="${GITHUB_REF_NAME#v}"; fi
           if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
-          NAME="codex-quickstart-${VERSION}-linux-x86_64"
+          NAME="ai-quickstart-${VERSION}-linux-x86_64"
           mkdir -p "out/$NAME"
-          cp src-tauri/target/release/codex-quickstart "out/$NAME/"
+          cp src-tauri/target/release/ai-quickstart "out/$NAME/"
           cp SPEC.md "out/$NAME/README-SPEC.md"
           cp README.md "out/$NAME/README.md"
           (cd out && zip -qr "$NAME.zip" "$NAME")
@@ -119,7 +119,7 @@ jobs:
           VERSION="${{ github.event.inputs.version }}"
           if [ -z "$VERSION" ]; then VERSION="${GITHUB_REF_NAME#v}"; fi
           if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
-          NAME="codex-quickstart-${VERSION}-macos-aarch64"
+          NAME="ai-quickstart-${VERSION}-macos-aarch64"
           APP=$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
           echo "app = $APP"
           mkdir -p out
@@ -141,10 +141,10 @@ jobs:
           files: out/*.zip
           generate_release_notes: true
           body: |
-            「Codex 快速配置」绿色版（免安装、解压即用）。
+            「AI 快速配置」绿色版（免安装、解压即用）。
 
-            - Windows：解压后双击 `codex-quickstart.exe`（需要 WebView2 运行时，Win10 2004+/Win11 一般已自带）
-            - macOS：解压后把 `codex-quickstart.app` 拖到任意目录即可；未签名，首次打开需右键 → 打开
-            - Linux：解压后直接运行 `codex-quickstart`（需要 webkit2gtk-4.1）
+            - Windows：解压后双击 `ai-quickstart.exe`（需要 WebView2 运行时，Win10 2004+/Win11 一般已自带）
+            - macOS：解压后把 `ai-quickstart.app` 拖到任意目录即可；未签名，首次打开需右键 → 打开
+            - Linux：解压后直接运行 `ai-quickstart`（需要 webkit2gtk-4.1）
 
             所有产物都不会安装任何东西、不写 PATH；数据都放在本工具自己的目录（卸载 = 删除目录）。

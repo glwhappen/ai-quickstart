@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use toml_edit::{DocumentMut, Item, Table, Value};
 
+use super::tools::{self, codex as codex_tool};
 use super::{config_path, user_codex_home};
 
-pub const BASE_URL: &str = "https://new-api.hsfp.cn/v1";
-pub const DEFAULT_MODEL: &str = "deepseek-flash";
-pub const PROVIDER_ID: &str = "hsfp";
-pub const PROVIDER_NAME: &str = "HSFP";
+pub const BASE_URL: &str = codex_tool::BASE_URL;
+pub const DEFAULT_MODEL: &str = codex_tool::DEFAULT_MODEL;
+pub const PROVIDER_ID: &str = codex_tool::PROVIDER_ID;
+pub const PROVIDER_NAME: &str = codex_tool::PROVIDER_NAME;
 
 #[derive(Serialize, Clone, Default)]
 pub struct ConfigInfo {
@@ -42,22 +43,8 @@ fn mask(key: &str) -> String {
 }
 
 fn render(key: &str) -> String {
-    // 必须用 http_headers 内联 Key，不能用 env_key：
-    // 桌面版 App 不继承 shell 环境变量，用 env_key 会静默失效（踩过的坑）。
-    format!(
-        r#"# 由「Codex 快速配置」生成（绿色版，只作用于本工具启动的 Codex）
-model = "{DEFAULT_MODEL}"
-model_provider = "{PROVIDER_ID}"
-
-[model_providers.{PROVIDER_ID}]
-name = "{PROVIDER_NAME}"
-base_url = "{BASE_URL}"
-wire_api = "responses"
-
-[model_providers.{PROVIDER_ID}.http_headers]
-Authorization = "Bearer {key}"
-"#
-    )
+    // 具体格式由 tool 定义（Codex 用 model / model_provider / [model_providers.hsfp]）。
+    tools::primary().render_config(key)
 }
 
 fn parse_key(text: &str) -> Option<String> {

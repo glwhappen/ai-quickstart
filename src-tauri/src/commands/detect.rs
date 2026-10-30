@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::path::PathBuf;
 use std::process::Command;
 
-use super::{codex_dir, codex_home, config_path, data_root, exe_name, user_codex_home, version_cmp};
+use super::{codex_dir, codex_home, config_path, data_root, exe_name, user_codex_home};
 
 #[derive(Serialize, Clone, Default)]
 pub struct CodexStatus {
@@ -37,29 +37,9 @@ pub struct EnvStatus {
     pub user_codex_home: String,
 }
 
-/// 扫描我们自己解压的版本目录，取最高版本。
+/// 当前主工具是否已准备好（给 test / launch 用）。
 pub fn prepared_version() -> Option<(String, PathBuf)> {
-    let dir = codex_dir();
-    let mut best: Option<(String, PathBuf)> = None;
-    let entries = std::fs::read_dir(&dir).ok()?;
-    for e in entries.flatten() {
-        if !e.path().is_dir() {
-            continue;
-        }
-        let ver = e.file_name().to_string_lossy().to_string();
-        let exe = e.path().join("bin").join(exe_name());
-        if !exe.is_file() {
-            continue;
-        }
-        let better = match &best {
-            None => true,
-            Some((bv, _)) => version_cmp(&ver, bv) == std::cmp::Ordering::Greater,
-        };
-        if better {
-            best = Some((ver, exe));
-        }
-    }
-    best
+    super::tools::primary().detect()
 }
 
 fn version_of(exe: &PathBuf) -> Option<String> {

@@ -53,9 +53,8 @@ type TestResult = {
 
 type StepState = "wait" | "active" | "done" | "fail";
 
-const SITE = "https://cc.hsfp.cn/";
-/// 领 Key 页（官网那边已有 SSO + 一键领取，Key 卡片上会放「填入 Codex 快速配置」按钮跳 deep link）
-const KEY_PAGE = "https://cc.hsfp.cn/#key";
+/// 本产品自己的站点（setup.hsfp.cn）。不再导流到别的产品。
+const SITE = "https://setup.hsfp.cn/";
 const STORE_URL = "https://apps.microsoft.com/search?query=Codex";
 const OFFICIAL_URL = "https://chatgpt.com/codex";
 
@@ -76,6 +75,9 @@ export default function App() {
   const [cleanInfo, setCleanInfo] = useState<string | null>(null);
   const [showDesktop, setShowDesktop] = useState(false);
   const [deepLinkInfo, setDeepLinkInfo] = useState<string | null>(null);
+  const [loggingIn, setLoggingIn] = useState(false);
+  const [ssoInfo, setSsoInfo] = useState<string | null>(null);
+  const [ssoError, setSsoError] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement | null>(null);
 
   const refresh = useCallback(async () => {
@@ -89,7 +91,7 @@ export default function App() {
 
   useEffect(() => {
     void refresh();
-    // 官网点「填入 Codex 快速配置」→ codexquick://set-key?key=...&group=...
+    // 官网点「填入 AI 快速配置」→ aiquick://set-key?key=...&group=...
     const unKey = listen<{ key: string; group: string | null }>("deep-link-key", (ev) => {
       const { key, group } = ev.payload;
       setKey(key);
@@ -205,6 +207,23 @@ export default function App() {
 
   // 「启动 Codex」是主路径的最后一步：没测过就当场真测一次，通了才启动。
   // （重开应用后不会记得上次测过，所以按钮不能是灰的。）
+  /// 内嵌 SSO：浏览器登录 → 回环回调 → 服务端发 Key → 自动填入
+  const doLogin = async () => {
+    setLoggingIn(true);
+    setSsoError(null);
+    setSsoInfo(null);
+    try {
+      const key = await invoke<string>("sso_obtain_key");
+      setKey(key);
+      setDeepLinkInfo(null);
+      setSsoInfo(`已登录并自动填入 Key（${key.slice(0, 8)}…${key.slice(-4)}），点「测一下」验证`);
+    } catch (e) {
+      setSsoError(String(e));
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
   const doLaunch = async () => {
     setLaunchInfo(null);
     if (!passed) {
@@ -279,7 +298,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="head">
-        <h1>Codex 快速配置</h1>
+        <h1>AI 快速配置</h1>
         <p className="sub">绿色版，不安装、不改你的环境。配好就能用，用完删掉即可。</p>
       </header>
 
@@ -336,13 +355,20 @@ export default function App() {
               }}
             />
             <div className="row">
-              <button className="btn ghost small" onClick={() => open(KEY_PAGE)}>
-                快速领取 Key（网页上一键填入）→
+              <button
+                className="btn secondary"
+                disabled={loggingIn}
+                onClick={doLogin}
+              >
+                {loggingIn ? "正在打开登录页…" : "登录并自动领取 Key"}
               </button>
-              <button className="btn ghost small" onClick={() => open(SITE)}>
-                或打开官网手动复制
-              </button>
+              <p className="hint small">
+                点上面的按钮会在浏览器里登录，回来 Key 就自动填好了（不复制粘贴）。
+                也可以直接把已有的 sk- Key 粘贴到上面输入框。
+              </p>
             </div>
+            {ssoInfo && <p className="ok small">{ssoInfo}</p>}
+            {ssoError && <ErrBox text={ssoError} />}
             {deepLinkInfo && <p className="ok small">{deepLinkInfo}</p>}
 
             <button
@@ -421,7 +447,7 @@ export default function App() {
                 官方下载页：<a onClick={() => open(OFFICIAL_URL)}>{OFFICIAL_URL}</a>
               </li>
               <li>
-                国内镜像：<a onClick={() => open(SITE)}>{SITE}</a>
+                官方站：<a onClick={() => open(SITE)}>{SITE}</a>
               </li>
             </ol>
             <p className="small">

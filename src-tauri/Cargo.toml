@@ -1,13 +1,13 @@
 [package]
-name = "codex-quickstart"
+name = "ai-quickstart"
 version = "0.1.0"
-description = "Codex 快速配置"
+description = "AI 快速配置"
 authors = ["hsfp"]
 edition = "2021"
 rust-version = "1.85.0"
 
 [lib]
-name = "codex_quickstart_lib"
+name = "ai_quickstart_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -24,6 +24,8 @@ tauri-plugin-opener = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-single-instance = "2"
 url = "2"
+sha2 = "0.10"
+getrandom = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml_edit = "0.22"

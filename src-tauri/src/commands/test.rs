@@ -3,7 +3,8 @@ use serde_json::Value;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use super::config::{self, DEFAULT_MODEL};
+use super::config::{self};
+use super::tools;
 use super::detect;
 
 #[derive(Serialize, Clone, Default)]
@@ -202,11 +203,12 @@ pub fn run_test_blocking(key: Option<String>) -> TestResult {
         }
     }
 
+    let tool = tools::primary();
     let info = config::read_config();
     let model = info
         .model
         .clone()
-        .unwrap_or_else(|| DEFAULT_MODEL.to_string());
+        .unwrap_or_else(|| tool.default_model().to_string());
 
     let Some((key, _)) = read_key() else {
         return TestResult {
@@ -221,25 +223,20 @@ pub fn run_test_blocking(key: Option<String>) -> TestResult {
 
     // 主路径：用我们自己解压的 Codex、带 CODEX_HOME 真跑一次（端到端验证）
     if let Some((ver, exe)) = detect::prepared_version() {
-        let codex_home = super::codex_home();
+        let (args, _) = tool.verify_args(&model);
         let mut cmd = Command::new(&exe);
-        cmd.env("CODEX_HOME", &codex_home);
+        if let Some((var, home)) = tool.env_var() {
+            cmd.env(var, &home);
+        }
         cmd.current_dir(super::home_dir());
         // 必须显式 `-m`：Codex 会把「上次在 TUI 里选的模型」持久化在它自己的状态里、
         // 优先级高于 config.toml，不指定就可能拿着别的模型去打我们的网关（撞 503 no available channel）。
-        cmd.args([
-            "exec",
-            "-m",
-            &model,
-            "--skip-git-repo-check",
-            "reply with only the word OK",
-        ]);
-        let command_line = format!(
-            "CODEX_HOME={} {} exec -m {} --skip-git-repo-check \"reply with only the word OK\"",
-            codex_home.display(),
-            exe.display(),
-            model
-        );
+        cmd.args(&args);
+        let env_prefix = tool
+            .env_var()
+            .map(|(v, p)| format!("{v}={} ", p.display()))
+            .unwrap_or_default();
+        let command_line = format!("{}{} {}", env_prefix, exe.display(), args.join(" "));
         match run_with_timeout(&mut cmd, Duration::from_secs(180)) {
             Ok((code, text)) => {
                 let elapsed = start.elapsed().as_millis() as u64;
@@ -247,7 +244,10 @@ pub fn run_test_blocking(key: Option<String>) -> TestResult {
                     return TestResult {
                         ok: true,
                         category: "ok".into(),
-                        message: format!("实测通过：Codex {ver} 用模型 {model} 真的回了一句"),
+                        message: format!(
+                            "实测通过：{} {ver} 用模型 {model} 真的回了一句",
+                            tool.name()
+                        ),
                         reply: Some(short(&meaningful(&text), 200)),
                         model,
                         elapsed_ms: elapsed,

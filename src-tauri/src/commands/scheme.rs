@@ -1,7 +1,7 @@
-//! 自己注册 URL scheme `codexquick`（不依赖插件的 GUI-only 注册），
+//! 自己注册 URL scheme `aiquick`（不依赖插件的 GUI-only 注册），
 //! 这样「绿色版」也能在无界面模式下注册/撤销，`cleanup` 能把痕迹擦干净。
 //!
-//! - Windows：写 `HKCU\Software\Classes\codexquick`（当前用户，不需要管理员）
+//! - Windows：写 `HKCU\Software\Classes\aiquick`（当前用户，不需要管理员）
 //! - Linux：写用户级 `~/.local/share/applications/*.desktop` + `xdg-mime default`
 //! - macOS：`CFBundleURLTypes` 在打包进 .app 时由 bundle 配置负责，这里直接跳过
 //!
@@ -10,7 +10,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-pub const SCHEME: &str = "codexquick";
+pub const SCHEME: &str = "aiquick";
 
 fn exe() -> Result<PathBuf, String> {
     std::env::current_exe().map_err(|e| format!("取程序路径失败：{e}"))
@@ -97,7 +97,7 @@ fn desktop_path() -> Result<PathBuf, String> {
         Ok(v) if !v.trim().is_empty() => PathBuf::from(v),
         _ => super::home_dir().join(".local").join("share"),
     };
-    Ok(data.join("applications").join("codex-quickstart-handler.desktop"))
+    Ok(data.join("applications").join("ai-quickstart-handler.desktop"))
 }
 
 #[cfg(target_os = "linux")]
@@ -108,7 +108,7 @@ pub fn register() -> Result<String, String> {
         std::fs::create_dir_all(dir).map_err(|e| format!("创建目录失败：{e}"))?;
     }
     let body = format!(
-        "[Desktop Entry]\nType=Application\nName=Codex 快速配置\nExec=\"{}\" %u\nTerminal=false\nNoDisplay=true\nMimeType=x-scheme-handler/{SCHEME};\n",
+        "[Desktop Entry]\nType=Application\nName=AI 快速配置\nExec=\"{}\" %u\nTerminal=false\nNoDisplay=true\nMimeType=x-scheme-handler/{SCHEME};\n",
         exe.display()
     );
     std::fs::write(&path, body).map_err(|e| format!("写入 .desktop 失败：{e}"))?;
@@ -119,7 +119,7 @@ pub fn register() -> Result<String, String> {
     let _ = Command::new("xdg-mime")
         .args([
             "default",
-            "codex-quickstart-handler.desktop",
+            "ai-quickstart-handler.desktop",
             &format!("x-scheme-handler/{SCHEME}"),
         ])
         .output();
@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn scheme_name_is_fixed() {
         // 官网那边按这个拼链接，不能改
-        assert_eq!(SCHEME, "codexquick");
+        assert_eq!(SCHEME, "aiquick");
     }
 
     #[cfg(target_os = "linux")]
@@ -199,7 +199,7 @@ mod tests {
         let body = format!(
             "[Desktop Entry]\nType=Application\nExec=\"/tmp/x\" %u\nMimeType=x-scheme-handler/{SCHEME};\n"
         );
-        assert!(body.contains("x-scheme-handler/codexquick"));
+        assert!(body.contains("x-scheme-handler/aiquick"));
         assert!(body.contains("%u"));
     }
 }
