@@ -59,6 +59,8 @@ Authorization = "Bearer sk-..."
 
 ## 下载哪个、解压后点哪个
 
+下载页：<https://github.com/glwhappen/codex-quickstart/releases/latest>
+
 Release 资产命名固定为 **`codex-quickstart-<版本>-<平台>-<架构>.zip`**，平台取 `windows` / `macos` / `linux`，
 架构取 `x86_64` / `aarch64`：
 
