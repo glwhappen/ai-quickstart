@@ -57,6 +57,24 @@ Authorization = "Bearer sk-..."
 
 可用环境变量 `CODEX_QUICKSTART_HOME` 覆盖（自动化验收就用它 + 假 `HOME`）。
 
+## 下载哪个、解压后点哪个
+
+Release 资产命名固定为 **`codex-quickstart-<版本>-<平台>-<架构>.zip`**，平台取 `windows` / `macos` / `linux`，
+架构取 `x86_64` / `aarch64`：
+
+| 你的机器 | 下载 | 解压后点 |
+|---|---|---|
+| Windows 10/11（绝大多数） | `codex-quickstart-<版本>-windows-x86_64.zip` | `codex-quickstart.exe`（双击即跑，无需安装） |
+| Apple 芯片 Mac（M1/M2/M3…） | `codex-quickstart-<版本>-macos-aarch64.zip` | `codex-quickstart.app`（拖到任意目录，首次右键 → 打开） |
+| Intel Mac | 暂未出（可在 Actions 里加 `macos-13`） | — |
+| Linux x86_64 | `codex-quickstart-<版本>-linux-x86_64.zip` | `codex-quickstart`（`chmod +x` 后运行） |
+
+不需要下载 `.deb` / `.dmg` / 安装器——我们只出绿色版，解压即用，删目录即卸载。
+
+- **Windows** 依赖系统自带的 WebView2（Win11 与较新的 Win10 已内置）。
+- **macOS** 未签名，首次打开会被 Gatekeeper 拦一下：右键 → 打开，或 `xattr -dr com.apple.quarantine codex-quickstart.app`。
+- **Linux** 需要 webkit2gtk-4.1（多数桌面发行版已有）。
+
 ## 开发 / 构建
 
 ```bash

@@ -1,0 +1,134 @@
+name: release
+
+# 出「绿色版」portable zip（免安装、解压双击即用）。
+# 不做 updater、不配任何签名证书；三平台各自在原生机上构建（Linux 上交叉编 Tauri 不可靠）。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "版本号（不回填 tag 时用，如 0.1.0）"
+        required: false
+        default: "0.1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64
+            os: windows-2022
+            triple: x86_64-pc-windows-msvc
+            platform: windows
+            arch: x86_64
+          - name: macos-aarch64
+            os: macos-14
+            triple: aarch64-apple-darwin
+            platform: macos
+            arch: aarch64
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            triple: x86_64-unknown-linux-gnu
+            platform: linux
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux deps
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf libssl-dev build-essential curl wget file zip
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.triple }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      # macOS 出 .app（拖走即用）；Windows / Linux 出单个可执行文件
+      - name: Build (windows / linux)
+        if: matrix.platform != 'macos'
+        run: pnpm tauri build --no-bundle
+
+      - name: Build (macos .app)
+        if: matrix.platform == 'macos'
+        run: pnpm tauri build --bundles app
+
+      - name: Package portable zip (windows / linux)
+        if: matrix.platform != 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version || '' }}"
+          [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
+          [ -n "$VERSION" ] || VERSION="0.1.0"
+          EXT=""
+          [ "${{ matrix.platform }}" = "windows" ] && EXT=".exe"
+          NAME="codex-quickstart-${VERSION}-${{ matrix.platform }}-${{ matrix.arch }}"
+          mkdir -p "out/$NAME"
+          cp "src-tauri/target/release/codex-quickstart${EXT}" "out/$NAME/"
+          cp SPEC.md "out/$NAME/README-SPEC.md"
+          cp README.md "out/$NAME/README.md"
+          (cd out && zip -qr "$NAME.zip" "$NAME")
+          ls -lh "out/$NAME.zip"
+
+      - name: Package portable zip (macos .app)
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version || '' }}"
+          [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
+          [ -n "$VERSION" ] || VERSION="0.1.0"
+          NAME="codex-quickstart-${VERSION}-${{ matrix.platform }}-${{ matrix.arch }}"
+          APP=$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
+          echo "app = $APP"
+          mkdir -p out
+          # .app 里可能没有执行位，复制后补上
+          ditto "$APP" "out/$NAME.app"
+          chmod +x "out/$NAME.app/Contents/MacOS/"* || true
+          (cd out && zip -qry "$NAME.zip" "$NAME.app")
+          ls -lh "out/$NAME.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: out/*.zip
+          if-no-files-found: error
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: out/*.zip
+          generate_release_notes: true
+          body: |
+            「Codex 快速配置」绿色版（免安装、解压即用）。
+
+            - Windows：解压后双击 `codex-quickstart.exe`（需要 WebView2 运行时，Win10 2004+/Win11 一般已自带）
+            - macOS：解压后把 `codex-quickstart.app` 拖到任意目录即可；未签名，首次打开需右键 → 打开
+            - Linux：解压后直接运行 `codex-quickstart`（需要 webkit2gtk-4.1）
+
+            所有产物都不会安装任何东西、不写 PATH；数据都放在本工具自己的目录（卸载 = 删除目录）。
