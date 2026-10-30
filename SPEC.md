@@ -95,7 +95,7 @@
 ② 没有 Codex → 点「安装」→ 镜像直下装好（约 300MB，带进度）
    已经有了   → 直接进下一步
       ↓
-③ 配置：把 Key 填进来（或点「去领一个 Key」跳 cc.hsfp.cn）
+③ 配置：点「快速领取 Key」（内嵌 SSO 一键拿到，见 §1.7），或手动粘贴
       ↓
 ④ 测试：点「测一下」→ 真实发一次请求 → 显示 ✅ 可用 / ❌ 具体原因
       ↓
@@ -115,7 +115,7 @@
 - 装 **Codex CLI**：npmmirror 镜像直下（**已经有实测可用的实现，直接从 `/root/ccs-brand/src-tauri/src/commands/misc.rs` 的 `CODEX_MIRROR_INSTALL_WINDOWS_SCRIPT` / `CODEX_MIRROR_INSTALL_UNIX` 搬**，不要重写）：
   - 布局必须与官方 install.sh 一致：`~/.codex/packages/standalone/releases/<ver>-<triple>/` + `current` 软链（Windows 用 junction）+ `~/.local/bin/codex` 入口。
   - 国内不用官方 installer（`chatgpt.com/codex/install.sh` 不可达）。
-- 装 **Codex 桌面版**：**不代下**（Windows MSIX ≈958MB、macOS zip ≈729MB），只给三样：Microsoft Store 搜 `Codex` 的说明、官方下载页链接、本站镜像链接（`https://cc.hsfp.cn/`）。
+- 装 **Codex 桌面版**：**不代下**（Windows MSIX ≈958MB、macOS zip ≈729MB），只给两样：Microsoft Store 搜 `Codex` 的说明、官方下载页链接（**不放别的产品站点链接**）。
 
 ### 3.3 配置
 写 `~/.codex/config.toml`（Windows `%USERPROFILE%\.codex\config.toml`）：
