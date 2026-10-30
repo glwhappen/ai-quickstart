@@ -1,0 +1,430 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+
+type CodexStatus = {
+  prepared: boolean;
+  version: string | null;
+  path: string | null;
+  dir: string | null;
+};
+
+type SystemCodex = {
+  cli_found: boolean;
+  cli_path: string | null;
+  cli_version: string | null;
+  desktop_supported: boolean;
+  desktop_found: boolean;
+  desktop_detail: string;
+};
+
+type EnvStatus = {
+  codex: CodexStatus;
+  system: SystemCodex;
+  os: string;
+  data_root: string;
+  codex_home: string;
+  config_path: string;
+  config_exists: boolean;
+  user_codex_home: string;
+};
+
+type ConfigInfo = {
+  path: string;
+  exists: boolean;
+  model: string | null;
+  provider: string | null;
+  base_url: string | null;
+  has_key: boolean;
+  key_masked: string | null;
+  desktop_configured: boolean;
+};
+
+type TestResult = {
+  ok: boolean;
+  category: string;
+  message: string;
+  model: string;
+  elapsed_ms: number;
+  command: string;
+  output: string;
+  reply: string | null;
+};
+
+type StepState = "wait" | "active" | "done" | "fail";
+
+const SITE = "https://cc.hsfp.cn/";
+const STORE_URL = "https://apps.microsoft.com/search?query=Codex";
+const OFFICIAL_URL = "https://chatgpt.com/codex";
+
+export default function App() {
+  const [env, setEnv] = useState<EnvStatus | null>(null);
+  const [config, setConfig] = useState<ConfigInfo | null>(null);
+  const [key, setKey] = useState("");
+  const [alsoDesktop, setAlsoDesktop] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [log, setLog] = useState<string[]>([]);
+  const [prepareError, setPrepareError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveInfo, setSaveInfo] = useState<string | null>(null);
+  const [test, setTest] = useState<TestResult | null>(null);
+  const [launchInfo, setLaunchInfo] = useState<string | null>(null);
+  const [cleanInfo, setCleanInfo] = useState<string | null>(null);
+  const [showDesktop, setShowDesktop] = useState(false);
+  const logRef = useRef<HTMLDivElement | null>(null);
+
+  const refresh = useCallback(async () => {
+    const [e, c] = await Promise.all([
+      invoke<EnvStatus>("check_environment"),
+      invoke<ConfigInfo>("read_config"),
+    ]);
+    setEnv(e);
+    setConfig(c);
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const un = listen<{ level: string; line: string }>("prepare-log", (ev) => {
+      if (ev.payload.level === "tick") {
+        setLog((prev) => [...prev.filter((l) => !l.startsWith("已等待")), ev.payload.line]);
+        return;
+      }
+      setLog((prev) => [...prev, ev.payload.line].slice(-5));
+    });
+    return () => {
+      void un.then((f) => f());
+    };
+  }, [refresh]);
+
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [log]);
+
+  const open = (url: string) => {
+    void invoke("open_url", { url });
+  };
+
+  const doPrepare = async () => {
+    setPreparing(true);
+    setPrepareError(null);
+    setLog(["正在连接国内镜像…"]);
+    try {
+      const v = await invoke<string>("prepare_codex");
+      setLog((prev) => [...prev, `✅ 准备好了：${v}`]);
+      await refresh();
+    } catch (e) {
+      setPrepareError(String(e));
+    } finally {
+      setPreparing(false);
+    }
+  };
+
+  const doSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    setSaveInfo(null);
+    try {
+      const r = await invoke<{ path: string; backup_path: string | null; changed: boolean }>(
+        "write_config",
+        { key, alsoDesktop },
+      );
+      setSaveInfo(
+        alsoDesktop
+          ? `已写入 ${r.path}，并把同一把 Key 写进桌面版的配置${r.backup_path ? `（原文件已备份）` : ""}`
+          : `已写入 ${r.path}`,
+      );
+      await refresh();
+      setTest(null);
+    } catch (e) {
+      setSaveError(String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doTest = async () => {
+    setTesting(true);
+    setTest(null);
+    try {
+      const r = await invoke<TestResult>("run_test", { key: key.trim() ? key.trim() : null });
+      setTest(r);
+      await refresh();
+    } catch (e) {
+      setTest({
+        ok: false,
+        category: "unknown",
+        message: String(e),
+        model: "",
+        elapsed_ms: 0,
+        command: "",
+        output: "",
+        reply: null,
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const doLaunch = async () => {
+    setLaunchInfo(null);
+    try {
+      const msg = await invoke<string>("launch_codex");
+      setLaunchInfo(msg);
+    } catch (e) {
+      setLaunchInfo(`启动失败：${e}`);
+    }
+  };
+
+  const doCleanup = async () => {
+    try {
+      const msg = await invoke<string>("cleanup");
+      setCleanInfo(msg);
+      await refresh();
+    } catch (e) {
+      setCleanInfo(`清理失败：${e}`);
+    }
+  };
+
+  const ready = !!env?.codex.prepared;
+  const saved = !!config?.has_key;
+  const passed = !!test?.ok;
+
+  const steps = useMemo(() => {
+    const list: { n: number; title: string; state: StepState; detail: string }[] = [];
+    list.push({
+      n: 1,
+      title: "检查环境",
+      state: env ? "done" : "active",
+      detail: env
+        ? ready
+          ? `已备好 Codex ${env.codex.version ?? ""}`.trim()
+          : "还没准备好 Codex（不用安装，下载解压即用）"
+        : "正在检查…",
+    });
+    list.push({
+      n: 2,
+      title: "准备 Codex",
+      state: ready ? "done" : preparing ? "active" : env ? "active" : "wait",
+      detail: ready
+        ? "已解压到本工具自己的目录，随时可以运行"
+        : preparing
+          ? "正在下载解压…"
+          : "点按钮从国内镜像直接下载，不安装、不写 PATH",
+    });
+    list.push({
+      n: 3,
+      title: "填入 Key",
+      state: saved ? "done" : ready ? "active" : "wait",
+      detail: saved
+        ? `已保存（${config?.key_masked ?? ""}），模型 ${config?.model ?? ""}`
+        : "把 sk- 开头的 Key 粘贴进来",
+    });
+    list.push({
+      n: 4,
+      title: "测一下能不能用",
+      state: passed ? "done" : saved ? "active" : "wait",
+      detail: passed
+        ? "实测通过，可以开始用了"
+        : saved
+          ? "点「测一下」，会真的跑一次 Codex"
+          : "保存 Key 之后就能测",
+    });
+    return list;
+  }, [env, ready, preparing, saved, config, passed]);
+
+  return (
+    <div className="app">
+      <header className="head">
+        <h1>Codex 快速配置</h1>
+        <p className="sub">绿色版，不安装、不改你的环境。配好就能用，用完删掉即可。</p>
+      </header>
+
+      <div className="steps">
+        {steps.map((s) => (
+          <div key={s.n} className={`step step-${s.state}`}>
+            <div className="badge">{s.state === "done" ? "✓" : s.n}</div>
+            <div className="step-body">
+              <div className="step-title">{s.title}</div>
+              <div className="step-detail">{s.detail}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <main className="panel">
+        {!env && <div className="hint">正在检查环境…</div>}
+
+        {env && !ready && (
+          <>
+            <button className="btn primary big" disabled={preparing} onClick={doPrepare}>
+              {preparing ? "正在下载，请稍候…" : "准备 Codex"}
+            </button>
+            <p className="hint small">
+              从国内镜像下载（约 100MB），解压到本工具自己的目录，不写 PATH、不进系统目录。
+            </p>
+            {log.length > 0 && (
+              <div className="log" ref={logRef}>
+                {log.map((l, i) => (
+                  <div key={i}>{l}</div>
+                ))}
+              </div>
+            )}
+            {prepareError && <ErrBox text={prepareError} />}
+          </>
+        )}
+
+        {env && ready && (
+          <>
+            <label className="label" htmlFor="key">
+              API Key
+            </label>
+            <input
+              id="key"
+              className="input"
+              placeholder="sk-..."
+              value={key}
+              spellCheck={false}
+              onChange={(e) => {
+                setKey(e.target.value);
+                setSaveInfo(null);
+                setSaveError(null);
+              }}
+            />
+            <button className="btn ghost small" onClick={() => open(SITE)}>
+              去领一个 Key →
+            </button>
+
+            <button
+              className="btn primary"
+              disabled={saving || key.trim().length === 0}
+              onClick={doSave}
+            >
+              {saving ? "正在保存…" : "保存配置"}
+            </button>
+            {saveInfo && <p className="ok small">{saveInfo}</p>}
+            {saveError && <ErrBox text={saveError} />}
+
+            <label className="check small">
+              <input
+                type="checkbox"
+                checked={alsoDesktop}
+                onChange={(e) => setAlsoDesktop(e.target.checked)}
+              />
+              桌面版也要用这个 Key（会备份并只改必要几行）
+            </label>
+
+            <button className="btn secondary" disabled={testing || (!saved && !key.trim())} onClick={doTest}>
+              {testing ? "正在实测…" : "测一下"}
+            </button>
+
+            {test && (
+              <div className={`result ${test.ok ? "result-ok" : "result-fail"}`}>
+                <div className="result-title">
+                  {test.ok ? "✅ 可以用" : "❌ 还不能用"}
+                  {test.model ? <span className="muted"> · {test.model}</span> : null}
+                  {test.elapsed_ms > 0 ? (
+                    <span className="muted"> · {(test.elapsed_ms / 1000).toFixed(1)}s</span>
+                  ) : null}
+                </div>
+                {test.reply && <div className="reply">回复：{test.reply}</div>}
+                <div className="result-msg">{test.message}</div>
+                <details>
+                  <summary className="small muted">看详细输出</summary>
+                  <pre className="pre">
+                    {test.command ? `$ ${test.command}\n` : ""}
+                    {test.output || "(无输出)"}
+                  </pre>
+                </details>
+              </div>
+            )}
+
+            <button className="btn primary big" disabled={!passed} onClick={doLaunch}>
+              启动 Codex
+            </button>
+            {!passed && <p className="hint small">测通了才能启动（先确认能用，免得进去一脸懵）。</p>}
+            {launchInfo && <p className="ok small">{launchInfo}</p>}
+          </>
+        )}
+      </main>
+
+      <footer className="foot">
+        <button className="link" onClick={() => setShowDesktop((v) => !v)}>
+          {showDesktop ? "收起桌面版说明" : "想用桌面版？"}
+        </button>
+        {showDesktop && (
+          <div className="desktop">
+            <p className="small">
+              桌面版约 1GB，本工具不代下（太慢），请用下面任一方式自行安装：
+            </p>
+            <ol className="small">
+              <li>
+                Windows：Microsoft Store 搜 <code>Codex</code>（
+                <a onClick={() => open(STORE_URL)}>打开商店搜索</a>）
+              </li>
+              <li>
+                官方下载页：<a onClick={() => open(OFFICIAL_URL)}>{OFFICIAL_URL}</a>
+              </li>
+              <li>
+                国内镜像：<a onClick={() => open(SITE)}>{SITE}</a>
+              </li>
+            </ol>
+            <p className="small">
+              装好后勾选上面的「桌面版也要用这个 Key」，再打开应用，左上角切到 <b>Codex 模式</b>
+              （普通对话不走这里的 Key）。
+            </p>
+            <p className="small muted">
+              {env?.system.desktop_supported
+                ? env.system.desktop_found
+                  ? `已检测到桌面版：${env.system.desktop_detail}`
+                  : `未检测到桌面版：${env.system.desktop_detail}`
+                : "当前系统没有 Codex 桌面版"}
+              {config?.desktop_configured ? " · 桌面版配置已写入" : ""}
+            </p>
+          </div>
+        )}
+
+        <details className="tiny">
+          <summary className="link">高级 / 清理</summary>
+          <div className="desktop">
+            <p className="small muted">
+              本工具的数据目录：<code>{env?.data_root ?? ""}</code>
+              <br />
+              Codex 的隔离配置目录：<code>{env?.codex_home ?? ""}</code>
+              <br />
+              你自己的 <code>{env?.user_codex_home ?? "~/.codex"}</code> 不会被改动
+              {config?.desktop_configured ? "（除了你勾选过桌面版那一次）" : ""}。
+            </p>
+            <button className="btn ghost small" onClick={doCleanup}>
+              清理并退出（删掉本工具产生的全部文件）
+            </button>
+            {cleanInfo && <p className="small ok">{cleanInfo}</p>}
+          </div>
+        </details>
+
+        <p className="tiny muted">命令行里也能用：把 CODEX_HOME 指向上面的隔离目录即可。</p>
+      </footer>
+    </div>
+  );
+}
+
+function ErrBox({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="err">
+      <div className="err-text">{text}</div>
+      <button
+        className="link small"
+        onClick={() => {
+          void navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          });
+        }}
+      >
+        {copied ? "已复制" : "复制错误"}
+      </button>
+    </div>
+  );
+}
