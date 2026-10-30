@@ -77,19 +77,35 @@ jobs:
         if: matrix.platform == 'macos'
         run: pnpm tauri build --bundles app
 
-      - name: Package portable zip (windows / linux)
-        if: matrix.platform != 'macos'
+      # Windows runner 上没有 zip 命令，用 PowerShell 的 Compress-Archive
+      - name: Package portable zip (windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = "${{ github.event.inputs.version }}"
+          if (-not $version) { $version = "${{ github.ref_name }}" -replace '^v', '' }
+          if (-not $version) { $version = '0.1.0' }
+          $name = "codex-quickstart-$version-windows-x86_64"
+          New-Item -ItemType Directory -Path "out/$name" -Force | Out-Null
+          Copy-Item "src-tauri/target/release/codex-quickstart.exe" "out/$name/" -Force
+          Copy-Item "SPEC.md" "out/$name/README-SPEC.md" -Force
+          Copy-Item "README.md" "out/$name/README.md" -Force
+          Compress-Archive -Path "out/$name" -DestinationPath "out/$name.zip" -Force
+          Get-Item "out/$name.zip" | Select-Object Name, Length
+
+      # Linux 有 zip
+      - name: Package portable zip (linux)
+        if: matrix.platform == 'linux'
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${{ github.event.inputs.version || '' }}"
-          [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
-          [ -n "$VERSION" ] || VERSION="0.1.0"
-          EXT=""
-          [ "${{ matrix.platform }}" = "windows" ] && EXT=".exe"
-          NAME="codex-quickstart-${VERSION}-${{ matrix.platform }}-${{ matrix.arch }}"
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then VERSION="${GITHUB_REF_NAME#v}"; fi
+          if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
+          NAME="codex-quickstart-${VERSION}-linux-x86_64"
           mkdir -p "out/$NAME"
-          cp "src-tauri/target/release/codex-quickstart${EXT}" "out/$NAME/"
+          cp src-tauri/target/release/codex-quickstart "out/$NAME/"
           cp SPEC.md "out/$NAME/README-SPEC.md"
           cp README.md "out/$NAME/README.md"
           (cd out && zip -qr "$NAME.zip" "$NAME")
@@ -100,10 +116,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${{ github.event.inputs.version || '' }}"
-          [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
-          [ -n "$VERSION" ] || VERSION="0.1.0"
-          NAME="codex-quickstart-${VERSION}-${{ matrix.platform }}-${{ matrix.arch }}"
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then VERSION="${GITHUB_REF_NAME#v}"; fi
+          if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
+          NAME="codex-quickstart-${VERSION}-macos-aarch64"
           APP=$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
           echo "app = $APP"
           mkdir -p out
