@@ -1,4 +1,8 @@
-# Codex 快速配置（codex-quickstart）SPEC
+# AI 快速配置（ai-quickstart）SPEC
+
+> **2026-10-30 改名**：原 `Codex 快速配置 / codex-quickstart`。郭老师指出「后面可能不止 codex」，
+> 所以产品名去掉 Codex，改为通用的 **「AI 快速配置」**；英文标识 `ai-quickstart`；deep link scheme `aiquick`；
+> 主页域名 `setup.hsfp.cn`。当前只实现 Codex 一条线，但**架构上必须能加下一个工具（如 Claude Code）而不用推倒重来**。
 
 > 2026-10-30 郭老师立的新项目。旧项目 `/root/ccs-brand`（fork CC Switch）**只作经验参考，不复用代码形态**。
 
@@ -51,6 +55,33 @@
   必须先备份 `config.toml.bak.<时间戳>`，且只增改 `model` / `model_provider` / `[model_providers.hsfp]` 几项，
   用户原有的 `[desktop]`、`[projects.*]` 等段一个字符都不能动。
 - 因为桌面版读的是固定的 `~/.codex/config.toml`，**没法用 CODEX_HOME 隔离**，这是它唯一的例外。
+
+## 1.6 可扩展性：不止 Codex（2026-10-30 郭老师指出）
+
+原话意译：「名字感觉可以换一下，后面可能不止 codex」。
+
+- 产品名不带任何工具名：**「AI 快速配置」**。
+- 内部数据结构按「**工具（tool）**」抽象：每个 tool 有自己的检测方式、准备/安装方式、配置写入方式（目标文件 + 片段）、验证命令。
+  当前只实现 `codex` 一个；**加 `claude`（Claude Code）时应当是"加一个 tool 定义"，不是改主流程**。
+- 界面上主路径仍然「一键搞定」，不要因为要支持多工具就变回多选界面：默认只做用户当前关心的那一个，
+  多工具是"如果检测到另一个也装了，顺手提一句"级别的增强，不是让用户做选择。
+- 配置目录、数据目录、CODEX_HOME 这类工具专属变量，全部收敛到 tool 定义里，不进主逻辑。
+
+## 1.7 领 Key：内嵌 SSO，不要外跳（2026-10-30 郭老师拍板）
+
+原话意译：「在上面不要提 cc.hsfp.cn 了，获取 key 可以直接把代码搬过来」。
+
+- **产品之间不互相导流**：主页与程序里都不引导用户去 `cc.hsfp.cn`（那是另一个产品）。
+- **把 `cc.hsfp.cn` 那套 Authentik 单点登录 + 建 Key 的代码搬过来**，在本程序内完成：
+  1. 本程序发起 OIDC 授权（Authentik，Public client + PKCE），系统浏览器打开，回环地址回调（如 `http://127.0.0.1:17321/callback`）；
+  2. 拿 `sub`（Authentik `hashed_user_id` = sha256），按 `oidc_id` 在 new-api `users` 表查/建用户；
+  3. 在该用户名下建/复用 token：`group=半价`、`unlimited_quota=true`、`expired_time=-1`、`model_limits_enabled=false`、`name` 固定、幂等；
+  4. 把 Key 直接填进配置，用户全程不复制粘贴、不需要知道有这个 Key。
+- 实现来源（可以直接搬，不要重写）：`/root/hsfp-code-site/app.py` 里的 OIDC 回调、`users`/`tokens` 的查建逻辑、
+  `ensure_token()`、分组与 `unlimited_quota` 的写法；以及 `.env` 里 new-api 的连接方式（**凭据不要硬编码进仓库**）。
+- 兜底：SSO 失败时仍允许手动粘贴一把 Key（但**不要**再提示"去 cc.hsfp.cn 领"）。
+- 与旧 deep link 方案的关系：`codexquick://set-key` 这套**可以保留**（成本低、某些场景好用），
+  但主路径改为「内嵌 SSO 一键拿 Key」，deep link 降级为可选旁路。
 
 ## 2. 目标用户与唯一路径
 
@@ -114,14 +145,14 @@ Authorization = "Bearer <user-key>"
 
 **主路径：deep link 回填（实现这条）**
 1. 本程序注册自定义 URL scheme **`codexquick`**（Tauri `deep-link` 插件）。
-2. 「快速领取 Key」按钮 → 用**系统浏览器**打开 `https://cc.hsfp.cn/#key`（那边已有 SSO 与一键领取）。
-3. 官网 Key 卡片上加一个按钮「**填入 Codex 快速配置**」，点击跳到：
-   `codexquick://set-key?key=sk-xxxx&group=半价`
+2. 「快速领取 Key」按钮 → **本程序自己发起 OIDC 登录（见 §1.7），不跳任何其它产品站点**。
+3. （可选旁路）若已从别处拿到 Key，支持 `aiquick://set-key?key=sk-xxxx` 直接填入：
+   `aiquick://set-key?key=sk-xxxx&group=半价`
 4. 本程序收到 deep link → **自动填入输入框 + 立即校验 + 提示「已从网页填入 Key，点『测一下』验证」**，用户不用复制粘贴。
 5. deep link 处理要幂等：重复点击只覆盖为同一个 Key，不产生多份配置；**key 不写进日志**。
-6. 用户在官网没登录时，官网侧会先跳登录，登录后再回来点按钮——这段由官网负责，程序侧只管收 deep link。
+6. deep link 仅作旁路，主路径是 §1.7 的内嵌 SSO。
 
-**兜底路径（必须同时保留）**：输入框可手动粘贴，校验 `sk-` 前缀；「去领一个 Key」按钮仍打开 `https://cc.hsfp.cn/`。
+**兜底路径（必须同时保留）**：输入框可手动粘贴，校验 `sk-` 前缀；**不要**再引导用户去 `cc.hsfp.cn`。
 **不落盘明文以外的位置**（只写进 config.toml 的 Authorization）。
 
 ### 3.5 测试（关键一步，必须真实）
@@ -138,7 +169,7 @@ Authorization = "Bearer <user-key>"
 
 - **Tauri 2 + React**（经验现成，安装包 ~5–10MB，远小于 CC Switch 的 45MB）。
 - **单窗口、单页、五个状态**（检查中 / 待安装 / 待配置 / 待测试 / 完成），不需要侧栏、不需要路由。
-- 白牌：界面叫「**Codex 快速配置**」，不出现任何厂商品牌；不叫 CC Switch、不叫 HSFP Code。
+- 白牌：界面叫「**AI 快速配置**」，不出现任何厂商品牌与工具名；不叫 CC Switch、不叫 HSFP Code、也不叫 Codex 快速配置。
 - 白色亮色主题、按钮大、字大、留白多，窗口 480×620 左右就够。
 - 失败态必须可复制错误文本，不许无限转圈。
 
