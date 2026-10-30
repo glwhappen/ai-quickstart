@@ -113,7 +113,7 @@ mod tests {
             "://",
             "aiquick://",
             "aiquick://other?key=sk-abcdefgh12345678",
-            "https://cc.hsfp.cn/#key",
+            "https://example.com/#key",
             "aiquick://set-key?key=",
             "aiquick://set-key?key=abc",
             "aiquick://set-key?key=sk-abc%20def",
