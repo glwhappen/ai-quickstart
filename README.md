@@ -37,6 +37,17 @@ codexquick://set-key?key=sk-xxxx&group=半价
 - 安全：**日志里只有「尾号 xxxx（长度 n）」，`rg 'sk-' 日志` 是空的**；非法/缺参数的链接忽略并给中性提示，不崩。
 - 手动粘贴的兜底路径一直都在。
 
+### 注册与撤销
+
+scheme 由程序自己注册（不依赖安装器，绿色版也能用）：
+
+- **Windows**：`HKCU\Software\Classes\codexquick`（当前用户，不需要管理员）
+- **Linux**：`~/.local/share/applications/codex-quickstart-handler.desktop` + `xdg-mime default`
+- **macOS**：由 `.app` 的 `CFBundleURLTypes` 提供（打包时写入）
+
+「清理并退出」会把它一起撤掉；也可以手动：
+`codex-quickstart --headless register-scheme` / `--headless unregister-scheme`。
+
 命令行自检：`codex-quickstart --headless deeplink 'codexquick://set-key?key=sk-xxx&group=半价'`
 
 ## 写进配置的东西
