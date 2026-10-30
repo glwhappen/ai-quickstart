@@ -6,6 +6,9 @@
 
 ## 它做什么
 
+> 名字里不带任何工具：目前只实现 **Codex**，加别的工具是「加一个 tool 定义」
+> （`src-tauri/src/commands/tools/`），不改主流程。
+
 打开后只有一条路，一屏四步：
 
 1. **检查环境** —— 看本工具自己的目录里有没有备好的 Codex。
@@ -21,10 +24,25 @@
 测通之后给「启动 Codex」按钮：在新终端窗口里带上 `CODEX_HOME` 启动，用户不用知道 PATH。
 底部「高级 / 清理」里有「清理并退出」——删掉本工具产生的全部文件，等于卸载。
 
-## deep link：从网页一键回填 Key
+## 领 Key：内嵌 SSO（不再外跳）
 
-程序注册了 URL scheme **`aiquick`**。官网（cc.hsfp.cn）的 Key 卡片上点「填入 AI 快速配置」，
-会跳到：
+点「登录并自动领取 Key」→ 系统浏览器打开 Authentik 登录页 → 回环回调 `http://127.0.0.1:17321/callback`
+→ 程序拿 id_token 向 provisioning 端点换一把 Key → **直接写进隔离配置，用户不复制粘贴**。
+
+- OIDC：Public client + PKCE(S256)，issuer `https://auth.hsfp.cn/application/o/aiquick/`，client_id `aiquick-desktop`
+  （provider pk=63 / application slug=aiquick，`sub_mode=hashed_user_id`）。**没有 client_secret，仓库里没有任何凭据。**
+- 服务端环节：桌面程序连不到 new-api 的 Postgres，所以「查/建用户 + 建 token」由 provisioning 端点做
+  （默认 `POST https://setup.hsfp.cn/api/provision-key`，入参 `{id_token, group, name}`，出参 `{key:"sk-…"}`）。
+  逻辑沿用 `/root/hsfp-code-site/app.py` 的 `ensure_user()` / `ensure_token()`（`group=半价`、`unlimited_quota=true`、
+  `expired_time=-1`、`model_limits_enabled=false`、幂等复用同名 token）。
+- 可用环境变量覆盖，便于自测/自托管：
+  `AIQUICK_OIDC_ISSUER` / `AIQUICK_OIDC_CLIENT_ID` / `AIQUICK_REDIRECT_URI` / `AIQUICK_PROVISION_URL` / `AIQUICK_TOKEN_GROUP`。
+- 自检：`ai-quickstart --headless sso`（会真的拉一次 discovery，打印端点与 PKCE 参数）。
+- 兜底：SSO 失败时仍可手动粘贴一把 Key；**任何提示里都不再出现别的产品域名**。
+
+## deep link（可选旁路）：从网页回填 Key
+
+程序注册了 URL scheme **`aiquick`**。网页端的 Key 卡片上点「填入 AI 快速配置」会跳到：
 
 ```
 aiquick://set-key?key=sk-xxxx&group=半价
