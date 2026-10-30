@@ -53,8 +53,8 @@ type TestResult = {
 
 type StepState = "wait" | "active" | "done" | "fail";
 
-/// 本产品自己的站点（setup.hsfp.cn）。不再导流到别的产品。
-const SITE = "https://setup.hsfp.cn/";
+/// 本产品自己的站点（aiquick.hsfp.cn）。不再导流到别的产品。
+const SITE = "https://aiquick.hsfp.cn/";
 const STORE_URL = "https://apps.microsoft.com/search?query=Codex";
 const OFFICIAL_URL = "https://chatgpt.com/codex";
 
@@ -91,7 +91,7 @@ export default function App() {
 
   useEffect(() => {
     void refresh();
-    // 官网点「填入 AI 快速配置」→ aiquick://set-key?key=...&group=...
+    // 官网点「填入 aiquick」→ aiquick://set-key?key=...&group=...
     const unKey = listen<{ key: string; group: string | null }>("deep-link-key", (ev) => {
       const { key, group } = ev.payload;
       setKey(key);
@@ -298,7 +298,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="head">
-        <h1>AI 快速配置</h1>
+        <h1>aiquick</h1>
         <p className="sub">绿色版，不安装、不改你的环境。配好就能用，用完删掉即可。</p>
       </header>
 

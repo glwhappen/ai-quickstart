@@ -1,6 +1,6 @@
 # aiquick SPEC
 
-> **2026-10-30 改名（两次）**：`Codex 快速配置 / codex-quickstart` → `AI 快速配置 / ai-quickstart` → 最终定名 **`aiquick`**。
+> **2026-10-30 改名（两次）**：`Codex 快速配置 / codex-quickstart` → `aiquick / aiquick` → 最终定名 **`aiquick`**。
 > 郭老师：「太长了，aiquick吧」。所以：
 > - 产品显示名：**`aiquick`**
 > - 英文标识 / 包名 / 二进制名：**`aiquick`**

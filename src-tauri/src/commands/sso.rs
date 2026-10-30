@@ -24,7 +24,7 @@ fn client_id() -> String {
 }
 fn provision_url() -> String {
     std::env::var("AIQUICK_PROVISION_URL")
-        .unwrap_or_else(|_| "https://setup.hsfp.cn/api/provision-key".to_string())
+        .unwrap_or_else(|_| "https://aiquick.hsfp.cn/api/provision-key".to_string())
 }
 fn redirect_uri() -> String {
     std::env::var("AIQUICK_REDIRECT_URI")
@@ -341,9 +341,9 @@ fn read_request(stream: &mut TcpStream) -> String {
 
 fn respond(stream: &mut TcpStream, ok: bool) -> std::io::Result<()> {
     let (title, body) = if ok {
-        ("登录成功", "已经拿到 Key，回到「AI 快速配置」即可。这个页面可以关掉了。")
+        ("登录成功", "已经拿到 Key，回到「aiquick」即可。这个页面可以关掉了。")
     } else {
-        ("登录没成功", "回到「AI 快速配置」重试，或手动粘贴 Key。")
+        ("登录没成功", "回到「aiquick」重试，或手动粘贴 Key。")
     };
     let html = format!(
         "<!doctype html><meta charset=utf-8><title>{title}</title><body style=\"font:16px system-ui;padding:40px;line-height:1.7\"><h2>{title}</h2><p>{body}</p></body>"

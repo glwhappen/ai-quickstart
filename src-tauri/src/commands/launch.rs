@@ -34,7 +34,7 @@ fn write_launcher(exe: &PathBuf, codex_home: &PathBuf, extra_args: &[String]) ->
         // Codex 的 TUI 不认 config.toml 里的 model（未知模型会退回它内置的默认模型，
         // 撞出 503 no available channel），`codex exec` 才认。启动这一步必须显式指定。
         let script = format!(
-            "#!/bin/sh\n# 由「AI 快速配置」生成\nexport CODEX_HOME='{}'\ncd \"$HOME\"\nif [ \"$#\" -gt 0 ]; then\n  exec '{}' \"$@\"\nfi\nexec '{}' {}\n",
+            "#!/bin/sh\n# 由「aiquick」生成\nexport CODEX_HOME='{}'\ncd \"$HOME\"\nif [ \"$#\" -gt 0 ]; then\n  exec '{}' \"$@\"\nfi\nexec '{}' {}\n",
             codex_home.display(),
             exe.display(),
             exe.display(),

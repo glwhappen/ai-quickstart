@@ -263,7 +263,7 @@ impl Tool for CodexTool {
         // 必须用 http_headers 内联 Key，不能用 env_key：
         // 桌面版 App 不继承 shell 环境变量，用 env_key 会静默失效。
         format!(
-            r#"# 由「AI 快速配置」生成（绿色版，只作用于本工具启动的 Codex）
+            r#"# 由「aiquick」生成（绿色版，只作用于本工具启动的 Codex）
 model = "{DEFAULT_MODEL}"
 model_provider = "{PROVIDER_ID}"
 

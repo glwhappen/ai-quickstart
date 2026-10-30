@@ -1,13 +1,13 @@
 [package]
-name = "ai-quickstart"
+name = "aiquick"
 version = "0.1.0"
-description = "AI 快速配置"
+description = "aiquick"
 authors = ["hsfp"]
 edition = "2021"
 rust-version = "1.85.0"
 
 [lib]
-name = "ai_quickstart_lib"
+name = "aiquick_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

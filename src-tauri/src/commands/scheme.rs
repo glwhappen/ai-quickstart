@@ -97,7 +97,7 @@ fn desktop_path() -> Result<PathBuf, String> {
         Ok(v) if !v.trim().is_empty() => PathBuf::from(v),
         _ => super::home_dir().join(".local").join("share"),
     };
-    Ok(data.join("applications").join("ai-quickstart-handler.desktop"))
+    Ok(data.join("applications").join("aiquick-handler.desktop"))
 }
 
 #[cfg(target_os = "linux")]
@@ -108,7 +108,7 @@ pub fn register() -> Result<String, String> {
         std::fs::create_dir_all(dir).map_err(|e| format!("创建目录失败：{e}"))?;
     }
     let body = format!(
-        "[Desktop Entry]\nType=Application\nName=AI 快速配置\nExec=\"{}\" %u\nTerminal=false\nNoDisplay=true\nMimeType=x-scheme-handler/{SCHEME};\n",
+        "[Desktop Entry]\nType=Application\nName=aiquick\nExec=\"{}\" %u\nTerminal=false\nNoDisplay=true\nMimeType=x-scheme-handler/{SCHEME};\n",
         exe.display()
     );
     std::fs::write(&path, body).map_err(|e| format!("写入 .desktop 失败：{e}"))?;
@@ -119,7 +119,7 @@ pub fn register() -> Result<String, String> {
     let _ = Command::new("xdg-mime")
         .args([
             "default",
-            "ai-quickstart-handler.desktop",
+            "aiquick-handler.desktop",
             &format!("x-scheme-handler/{SCHEME}"),
         ])
         .output();

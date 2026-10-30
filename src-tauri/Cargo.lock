@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-quickstart"
+name = "aiquick"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",

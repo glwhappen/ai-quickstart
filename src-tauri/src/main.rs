@@ -3,11 +3,11 @@
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if let Some(pos) = args.iter().position(|a| a == "--headless") {
-        std::process::exit(ai_quickstart_lib::headless(&args[pos + 1..]));
+        std::process::exit(aiquick_lib::headless(&args[pos + 1..]));
     }
     #[cfg(target_os = "windows")]
     hide_console_for_gui();
-    ai_quickstart_lib::run()
+    aiquick_lib::run()
 }
 
 /// 双击启动时把附带的控制台窗口藏起来（等价于 GUI 子系统的观感）。

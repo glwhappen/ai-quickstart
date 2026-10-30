@@ -181,7 +181,7 @@ pub fn run() {
 }
 
 /// 无界面模式：与界面共用同一套函数，供自动化验收（假 HOME、真 Key、错 Key）使用。
-/// 用法：`ai-quickstart --headless <check|prepare|config|test|launch|cleanup> [--key sk-...] [--also-desktop]`
+/// 用法：`aiquick --headless <check|prepare|config|test|launch|cleanup> [--key sk-...] [--also-desktop]`
 pub fn headless(args: &[String]) -> i32 {
     let cmd = args.first().map(String::as_str).unwrap_or("");
     let key = args

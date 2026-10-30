@@ -1,6 +1,6 @@
 //! deep link：`aiquick://set-key?key=sk-xxx&group=半价`
 //!
-//! 网页端的 Key 卡片点「填入 AI 快速配置」就跳这个 URL，
+//! 网页端的 Key 卡片点「填入 aiquick」就跳这个 URL，
 //! 我们收到后把 Key 回填到输入框，用户不用「复制 → 粘贴」两趟。
 //!
 //! 三条硬约束（SPEC §3.4）：

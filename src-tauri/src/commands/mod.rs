@@ -22,7 +22,7 @@ pub fn data_root() -> PathBuf {
     {
         if let Ok(v) = std::env::var("LOCALAPPDATA") {
             if !v.trim().is_empty() {
-                return PathBuf::from(v).join("ai-quickstart");
+                return PathBuf::from(v).join("aiquick");
             }
         }
     }
@@ -31,19 +31,19 @@ pub fn data_root() -> PathBuf {
         return home_dir()
             .join("Library")
             .join("Application Support")
-            .join("ai-quickstart");
+            .join("aiquick");
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
         if let Ok(v) = std::env::var("XDG_DATA_HOME") {
             if !v.trim().is_empty() {
-                return PathBuf::from(v).join("ai-quickstart");
+                return PathBuf::from(v).join("aiquick");
             }
         }
-        return home_dir().join(".local").join("share").join("ai-quickstart");
+        return home_dir().join(".local").join("share").join("aiquick");
     }
     #[allow(unreachable_code)]
-    home_dir().join(".ai-quickstart")
+    home_dir().join(".aiquick")
 }
 
 pub fn home_dir() -> PathBuf {

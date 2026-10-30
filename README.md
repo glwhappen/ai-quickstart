@@ -1,6 +1,6 @@
-# AI 快速配置（ai-quickstart）
+# aiquick
 
-只服务 Codex 的极简配置器。**绿色版：不安装、不写 PATH、不改你已有的 Codex 环境。**
+工具无关的极简安装/配置器（当前只实现 Codex）。**绿色版：不安装、不写 PATH、不改你已有的环境。**
 
 需求唯一来源：[`SPEC.md`](./SPEC.md)（§1.5「免安装原则」优先级最高）。
 
@@ -13,9 +13,9 @@
 
 1. **检查环境** —— 看本工具自己的目录里有没有备好的 Codex。
 2. **准备 Codex** —— 从 npmmirror 镜像下载官方原生二进制，解压到
-   `<数据目录>/ai-quickstart/codex/<版本>/`，直接以该路径运行。
+   `<数据目录>/aiquick/tools/codex/packages/<版本>/`，直接以该路径运行。
    **不装进系统目录、不建软链、不写 PATH、不碰 `~/.local/bin`。**
-3. **填入 Key** —— 写进 `<数据目录>/ai-quickstart/codex-home/config.toml`。
+3. **填入 Key** —— 写进 `<数据目录>/aiquick/tools/codex/home/config.toml`。
    这个目录就是启动 Codex 时的 `CODEX_HOME`，**用户自己的 `~/.codex` 一个字节都不动**。
 4. **测一下** —— 用准备好的 Codex 真的跑一次
    `codex exec --skip-git-repo-check "reply with only the word OK"`，
@@ -32,17 +32,17 @@
 - OIDC：Public client + PKCE(S256)，issuer `https://auth.hsfp.cn/application/o/aiquick/`，client_id `aiquick-desktop`
   （provider pk=63 / application slug=aiquick，`sub_mode=hashed_user_id`）。**没有 client_secret，仓库里没有任何凭据。**
 - 服务端环节：桌面程序连不到 new-api 的 Postgres，所以「查/建用户 + 建 token」由 provisioning 端点做
-  （默认 `POST https://setup.hsfp.cn/api/provision-key`，入参 `{id_token, group, name}`，出参 `{key:"sk-…"}`）。
+  （默认 `POST https://aiquick.hsfp.cn/api/provision-key`，入参 `{id_token, group, name}`，出参 `{key:"sk-…"}`）。
   逻辑沿用 `/root/hsfp-code-site/app.py` 的 `ensure_user()` / `ensure_token()`（`group=半价`、`unlimited_quota=true`、
   `expired_time=-1`、`model_limits_enabled=false`、幂等复用同名 token）。
 - 可用环境变量覆盖，便于自测/自托管：
   `AIQUICK_OIDC_ISSUER` / `AIQUICK_OIDC_CLIENT_ID` / `AIQUICK_REDIRECT_URI` / `AIQUICK_PROVISION_URL` / `AIQUICK_TOKEN_GROUP`。
-- 自检：`ai-quickstart --headless sso`（会真的拉一次 discovery，打印端点与 PKCE 参数）。
+- 自检：`aiquick --headless sso`（会真的拉一次 discovery，打印端点与 PKCE 参数）。
 - 兜底：SSO 失败时仍可手动粘贴一把 Key；**任何提示里都不再出现别的产品域名**。
 
 ## deep link（可选旁路）：从网页回填 Key
 
-程序注册了 URL scheme **`aiquick`**。网页端的 Key 卡片上点「填入 AI 快速配置」会跳到：
+程序注册了 URL scheme **`aiquick`**。网页端的 Key 卡片上点「填入 aiquick」会跳到：
 
 ```
 aiquick://set-key?key=sk-xxxx&group=半价
@@ -60,17 +60,17 @@ aiquick://set-key?key=sk-xxxx&group=半价
 scheme 由程序自己注册（不依赖安装器，绿色版也能用）：
 
 - **Windows**：`HKCU\Software\Classes\aiquick`（当前用户，不需要管理员）
-- **Linux**：`~/.local/share/applications/ai-quickstart-handler.desktop` + `xdg-mime default`
+- **Linux**：`~/.local/share/applications/aiquick-handler.desktop` + `xdg-mime default`
 - **macOS**：由 `.app` 的 `CFBundleURLTypes` 提供（打包时写入）
 
 「清理并退出」会把它一起撤掉；也可以手动：
-`ai-quickstart --headless register-scheme` / `--headless unregister-scheme`。
+`aiquick --headless register-scheme` / `--headless unregister-scheme`。
 
-命令行自检：`ai-quickstart --headless deeplink 'aiquick://set-key?key=sk-xxx&group=半价'`
+命令行自检：`aiquick --headless deeplink 'aiquick://set-key?key=sk-xxx&group=半价'`
 
 ## 写进配置的东西
 
-`<数据目录>/ai-quickstart/codex-home/config.toml`：
+`<数据目录>/aiquick/tools/codex/home/config.toml`：
 
 ```toml
 model = "deepseek-flash"
@@ -98,30 +98,30 @@ Authorization = "Bearer sk-..."
 
 | 平台 | 路径 |
 |---|---|
-| Windows | `%LOCALAPPDATA%\ai-quickstart` |
-| macOS | `~/Library/Application Support/ai-quickstart` |
-| Linux | `${XDG_DATA_HOME:-~/.local/share}/ai-quickstart` |
+| Windows | `%LOCALAPPDATA%\aiquick` |
+| macOS | `~/Library/Application Support/aiquick` |
+| Linux | `${XDG_DATA_HOME:-~/.local/share}/aiquick` |
 
 可用环境变量 `AIQUICK_HOME` 覆盖（自动化验收就用它 + 假 `HOME`）。
 
 ## 下载哪个、解压后点哪个
 
-下载页：<https://github.com/glwhappen/ai-quickstart/releases/latest>
+下载页：<https://github.com/glwhappen/aiquick/releases/latest>
 
-Release 资产命名固定为 **`ai-quickstart-<版本>-<平台>-<架构>.zip`**，平台取 `windows` / `macos` / `linux`，
+Release 资产命名固定为 **`aiquick-<版本>-<平台>-<架构>.zip`**，平台取 `windows` / `macos` / `linux`，
 架构取 `x86_64` / `aarch64`：
 
 | 你的机器 | 下载 | 解压后点 |
 |---|---|---|
-| Windows 10/11（绝大多数） | `ai-quickstart-<版本>-windows-x86_64.zip` | `ai-quickstart.exe`（双击即跑，无需安装） |
-| Apple 芯片 Mac（M1/M2/M3…） | `ai-quickstart-<版本>-macos-aarch64.zip` | `ai-quickstart.app`（拖到任意目录，首次右键 → 打开） |
+| Windows 10/11（绝大多数） | `aiquick-<版本>-windows-x86_64.zip` | `aiquick.exe`（双击即跑，无需安装） |
+| Apple 芯片 Mac（M1/M2/M3…） | `aiquick-<版本>-macos-aarch64.zip` | `aiquick.app`（拖到任意目录，首次右键 → 打开） |
 | Intel Mac | 暂未出（可在 Actions 里加 `macos-13`） | — |
-| Linux x86_64 | `ai-quickstart-<版本>-linux-x86_64.zip` | `ai-quickstart`（`chmod +x` 后运行） |
+| Linux x86_64 | `aiquick-<版本>-linux-x86_64.zip` | `aiquick`（`chmod +x` 后运行） |
 
 不需要下载 `.deb` / `.dmg` / 安装器——我们只出绿色版，解压即用，删目录即卸载。
 
 - **Windows** 依赖系统自带的 WebView2（Win11 与较新的 Win10 已内置）。
-- **macOS** 未签名，首次打开会被 Gatekeeper 拦一下：右键 → 打开，或 `xattr -dr com.apple.quarantine ai-quickstart.app`。
+- **macOS** 未签名，首次打开会被 Gatekeeper 拦一下：右键 → 打开，或 `xattr -dr com.apple.quarantine aiquick.app`。
 - **Linux** 需要 webkit2gtk-4.1（多数桌面发行版已有）。
 
 ## 开发 / 构建
@@ -138,19 +138,19 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib   # 配置外科式修改�
 ### 无界面模式（自动化验收用）
 
 ```
-ai-quickstart --headless check
-ai-quickstart --headless prepare
-ai-quickstart --headless config --key sk-... [--also-desktop]
-ai-quickstart --headless test --key sk-...
-ai-quickstart --headless launch
-ai-quickstart --headless cleanup
+aiquick --headless check
+aiquick --headless prepare
+aiquick --headless config --key sk-... [--also-desktop]
+aiquick --headless test --key sk-...
+aiquick --headless launch
+aiquick --headless cleanup
 ```
 
 与界面调用的是同一套函数，输出 JSON。
 
 ## 平台说明
 
-- **Windows**：绿色版就是那个 `ai-quickstart.exe`，双击即跑。
+- **Windows**：绿色版就是那个 `aiquick.exe`，双击即跑。
   依赖系统的 **WebView2 Runtime**（Win10 2004+/Win11 一般已自带）。
 - **macOS**：`.app` 拖走即用（不装 LaunchDaemon、不写 /usr/local）。
 - **Linux**：单文件可执行，需要 webkit2gtk-4.1。

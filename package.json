@@ -1,9 +1,9 @@
 {
-  "name": "ai-quickstart",
+  "name": "aiquick",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "AI 快速配置（工具无关的极简安装/配置器，当前支持 Codex）",
+  "description": "aiquick（工具无关的极简安装/配置器，当前支持 Codex）",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
