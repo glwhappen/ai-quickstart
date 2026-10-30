@@ -4,6 +4,7 @@ use tauri::Emitter;
 
 use commands::config::{self, ConfigInfo, WriteResult};
 use commands::deeplink;
+use commands::scheme;
 use commands::detect::{self, EnvStatus};
 use commands::launch;
 use commands::prepare;
@@ -53,12 +54,9 @@ async fn launch_codex() -> Result<String, String> {
 #[tauri::command]
 async fn cleanup(app: tauri::AppHandle) -> Result<String, String> {
     // 绿色版：卸载时把 scheme 注册也撤掉，不在系统里留东西。
-    {
-        use tauri_plugin_deep_link::DeepLinkExt;
-        // 插件没有 unregister_all，逐个撤（与 tauri.conf.json 里的 schemes 对齐）。
-        if let Err(e) = app.deep_link().unregister("codexquick") {
-            println!("[deeplink] 注销 scheme 失败：{e}");
-        }
+    let _ = &app;
+    if let Err(e) = scheme::unregister() {
+        println!("[deeplink] 注销 scheme 失败：{e}");
     }
     launch::cleanup()
 }
@@ -126,10 +124,13 @@ pub fn run() {
         .manage(PendingKey::default())
         .setup(|app| {
             use tauri_plugin_deep_link::DeepLinkExt;
-            // 绿色版：注册随程序走（Windows 写 HKCU、Linux 写用户级 .desktop），清理时注销。
+            // 绿色版：自己注册 scheme（Windows 写 HKCU、Linux 写用户级 .desktop），不依赖插件的 GUI 注册。
             let handle = app.handle().clone();
-            if let Err(e) = handle.deep_link().register_all() {
-                println!("[deeplink] 注册 scheme 失败（不影响手动粘贴）：{e}");
+            if !scheme::is_registered() {
+                match scheme::register() {
+                    Ok(msg) => println!("[deeplink] {msg}"),
+                    Err(e) => println!("[deeplink] 注册 scheme 失败（不影响手动粘贴）：{e}"),
+                }
             }
             // 冷启动：程序是被 deep link 拉起来的，链接在 current 里。
             if let Ok(Some(urls)) = handle.deep_link().get_current() {
@@ -223,6 +224,8 @@ pub fn headless(args: &[String]) -> i32 {
                 Err(msg) => Ok(serde_json::json!({ "ok": false, "message": msg }).to_string()),
             }
         }
+        "register-scheme" => scheme::register(),
+        "unregister-scheme" => scheme::unregister(),
         "launch" => launch::launch_codex(),
         "cleanup" => launch::cleanup(),
         other => Err(format!("未知子命令：{other}")),

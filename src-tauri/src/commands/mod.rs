@@ -3,6 +3,7 @@ pub mod deeplink;
 pub mod detect;
 pub mod launch;
 pub mod prepare;
+pub mod scheme;
 pub mod test;
 
 use std::path::PathBuf;
