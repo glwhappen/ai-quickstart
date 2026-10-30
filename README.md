@@ -91,3 +91,9 @@ codex-quickstart --headless cleanup
 ## 不做的事
 
 不做供应商列表、不做路由/故障转移、不做 MCP/Skills/看板、不做多工具管理、不做第二个选择分支。
+
+## 实测踩到的两个 Codex 行为（已在代码里规避）
+
+1. **`model` 写进 `config.toml` 不等于 Codex 会用**：Codex 会把「上次在 TUI 里选的模型」持久化在它自己的状态里，优先级高于 `config.toml`，
+   连 `codex exec` 都跟着走，于是拿着别的模型去打网关 → `503 No available channel`。所以「测一下」和「启动 Codex」都**显式带 `-m <模型>`**。
+2. **第一次进 TUI 会问「是否信任当前文件夹」**：这是 Codex 自己的安全确认，按回车同意即可（我们没有替你自动设 trusted）。
