@@ -109,9 +109,20 @@ Authorization = "Bearer <user-key>"
 - `wire_api` 只能是 `responses`（我们的网关已验证支持，`/v1/responses` 200）。
 - 幂等：重复点配置不会写出重复段、不会叠加。
 
-### 3.4 Key 从哪来
-- 主路径：按钮「去领一个 Key」→ 打开 `https://cc.hsfp.cn/`（登录后页面直接显示 Key，用户复制回来粘贴）。
-- 输入框支持粘贴，格式校验 `sk-` 前缀，**不落盘明文以外的位置**（只写进 config.toml 的 Authorization）。
+### 3.4 Key 从哪来（2026-10-30 追加：要能「快速拉取」）
+郭老师追加要求：「也可以快速拉取 key」——不要逼用户「去网页复制 → 回来粘贴」两趟。
+
+**主路径：deep link 回填（实现这条）**
+1. 本程序注册自定义 URL scheme **`codexquick`**（Tauri `deep-link` 插件）。
+2. 「快速领取 Key」按钮 → 用**系统浏览器**打开 `https://cc.hsfp.cn/#key`（那边已有 SSO 与一键领取）。
+3. 官网 Key 卡片上加一个按钮「**填入 Codex 快速配置**」，点击跳到：
+   `codexquick://set-key?key=sk-xxxx&group=半价`
+4. 本程序收到 deep link → **自动填入输入框 + 立即校验 + 提示「已从网页填入 Key，点『测一下』验证」**，用户不用复制粘贴。
+5. deep link 处理要幂等：重复点击只覆盖为同一个 Key，不产生多份配置；**key 不写进日志**。
+6. 用户在官网没登录时，官网侧会先跳登录，登录后再回来点按钮——这段由官网负责，程序侧只管收 deep link。
+
+**兜底路径（必须同时保留）**：输入框可手动粘贴，校验 `sk-` 前缀；「去领一个 Key」按钮仍打开 `https://cc.hsfp.cn/`。
+**不落盘明文以外的位置**（只写进 config.toml 的 Authorization）。
 
 ### 3.5 测试（关键一步，必须真实）
 点「测一下」→ 用写好的配置**真的跑一次** `codex exec --skip-git-repo-check "reply with only the word OK"`（或直接 `curl https://new-api.hsfp.cn/v1/responses` 带同一个 Key 与模型），

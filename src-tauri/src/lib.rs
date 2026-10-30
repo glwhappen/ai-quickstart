@@ -111,6 +111,23 @@ pub fn headless(args: &[String]) -> i32 {
             None => serde_json::to_string_pretty(&config::read_config()).map_err(|e| e.to_string()),
         },
         "test" => Ok(serde_json::to_string_pretty(&test::run_test_blocking(key)).unwrap()),
+        // 给主页/排障用的一句话状态：Codex 就绪了吗、Key 配好了吗
+        "status" => {
+            let env = detect::check_environment();
+            let cfg = config::read_config();
+            let codex_ready = env.codex.prepared;
+            let key_configured = cfg.has_key;
+            Ok(serde_json::json!({
+                "codex_ready": codex_ready,
+                "key_configured": key_configured,
+                "ready": codex_ready && key_configured,
+                "codex_version": env.codex.version,
+                "model": cfg.model,
+                "config_path": cfg.path,
+                "data_root": env.data_root,
+            })
+            .to_string())
+        }
         "launch" => launch::launch_codex(),
         "cleanup" => launch::cleanup(),
         other => Err(format!("未知子命令：{other}")),
