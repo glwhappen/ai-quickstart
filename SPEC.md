@@ -16,6 +16,42 @@
 
 所以新项目定位：**功能砍到只剩一条主路径，界面只有一屏**。
 
+## 1.5 免安装原则（2026-10-30 郭老师追加，优先级最高）
+
+原话意译：「能不能尽量的不走安装呢，直接运行就行吧，这个也就用一次两次的」。
+
+这条把整个设计从「装东西」改成「**绿色版、解压即用、删了就干净**」：
+
+### 1.5.1 我们的程序本身
+- 出 **portable / 免安装** 产物：Windows 用绿色版 exe/zip（双击就跑，不进 `Program Files`、不写开始菜单、不注册卸载项）；
+  macOS 直接 .app 拖走即用（不装 LaunchDaemon、不装 /usr/local）。**不要跑安装向导。**
+- 「卸载」= 删掉目录。界面上给一个「清理并退出」按钮（删掉我们自己产生的全部文件）。
+
+### 1.5.2 Codex 本体也不"安装"
+- **不写 PATH、不建软链、不装进系统目录、不动 `~/.local/bin`。**
+- 做法：下载 tarball → 解压到我们自己的数据目录 `<appdata>/codex-quickstart/codex/<version>/`，直接以该路径运行。
+- 官方之所以要 `~/.codex/packages/standalone/...`，是为了让官方 installer 能识别版本、自动升级；我们不装、不管升级，**不需要那套布局**（升级=重新解压一个新版本目录）。
+
+### 1.5.3 关键：用 `CODEX_HOME` 隔离，完全不污染用户的 `~/.codex`
+- Codex 支持 `CODEX_HOME` 环境变量指定配置目录。我们把它设成自己的目录：
+  ```
+  <appdata>/codex-quickstart/codex-home/
+      config.toml        ← 我们生成的（我们的 provider + key）
+      (会话历史等也落这里，与用户原有环境隔离)
+  ```
+- 好处：**用户的 `~/.codex/config.toml` 一个字节都不动**，不需要备份、不需要外科手术式改 TOML，也没有"改坏用户配置"的风险。
+- 代价：与用户已有 Codex 环境的会话/历史分离 —— 对我们这个「用一两次」的场景是优点不是缺点。
+
+### 1.5.4 「启动 Codex」而不是「装好了去终端自己敲」
+- 界面上直接给一个 **「启动 Codex」** 按钮：在正确工作目录里、带上 `CODEX_HOME` 起一个终端窗口（Windows 用 `cmd /k` 或 Windows Terminal；macOS 用 Terminal.app）。
+- 用户不需要知道 PATH、不需要重开终端。用完关掉即可。
+
+### 1.5.5 唯一需要碰用户目录的情况（可选，且默认不做）
+- 只有用户显式勾选「**让 Codex 桌面版也能用这个 Key**」时才写 `~/.codex/config.toml`：
+  必须先备份 `config.toml.bak.<时间戳>`，且只增改 `model` / `model_provider` / `[model_providers.hsfp]` 几项，
+  用户原有的 `[desktop]`、`[projects.*]` 等段一个字符都不能动。
+- 因为桌面版读的是固定的 `~/.codex/config.toml`，**没法用 CODEX_HOME 隔离**，这是它唯一的例外。
+
 ## 2. 目标用户与唯一路径
 
 不懂命令行的国内小白，想用 Codex（CLI 或桌面版）接我们的半价模型。
