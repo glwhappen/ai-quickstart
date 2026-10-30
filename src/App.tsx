@@ -144,15 +144,16 @@ export default function App() {
     }
   };
 
-  const doTest = async () => {
+  const runTest = async (): Promise<TestResult | null> => {
     setTesting(true);
     setTest(null);
     try {
       const r = await invoke<TestResult>("run_test", { key: key.trim() ? key.trim() : null });
       setTest(r);
       await refresh();
+      return r;
     } catch (e) {
-      setTest({
+      const r: TestResult = {
         ok: false,
         category: "unknown",
         message: String(e),
@@ -161,14 +162,26 @@ export default function App() {
         command: "",
         output: "",
         reply: null,
-      });
+      };
+      setTest(r);
+      return r;
     } finally {
       setTesting(false);
     }
   };
 
+  const doTest = async () => {
+    await runTest();
+  };
+
+  // 「启动 Codex」是主路径的最后一步：没测过就当场真测一次，通了才启动。
+  // （重开应用后不会记得上次测过，所以按钮不能是灰的。）
   const doLaunch = async () => {
     setLaunchInfo(null);
+    if (!passed) {
+      const r = await runTest();
+      if (!r?.ok) return;
+    }
     try {
       const msg = await invoke<string>("launch_codex");
       setLaunchInfo(msg);
@@ -340,10 +353,15 @@ export default function App() {
               </div>
             )}
 
-            <button className="btn primary big" disabled={!passed} onClick={doLaunch}>
-              启动 Codex
+            <button className="btn primary big" disabled={testing} onClick={doLaunch}>
+              {testing ? "正在实测…" : passed ? "启动 Codex" : "测一下并启动"}
             </button>
-            {!passed && <p className="hint small">测通了才能启动（先确认能用，免得进去一脸懵）。</p>}
+            {!passed && !testing && (
+              <p className="hint small">会先真跑一次确认能用，通了才打开终端（免得进去一脸懵）。</p>
+            )}
+            <p className="hint small">
+              第一次进 Codex 它会问「是否信任当前文件夹」，按回车同意即可；之后直接聊天就能用。
+            </p>
             {launchInfo && <p className="ok small">{launchInfo}</p>}
           </>
         )}

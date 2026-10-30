@@ -225,15 +225,20 @@ pub fn run_test_blocking(key: Option<String>) -> TestResult {
         let mut cmd = Command::new(&exe);
         cmd.env("CODEX_HOME", &codex_home);
         cmd.current_dir(super::home_dir());
+        // 必须显式 `-m`：Codex 会把「上次在 TUI 里选的模型」持久化在它自己的状态里、
+        // 优先级高于 config.toml，不指定就可能拿着别的模型去打我们的网关（撞 503 no available channel）。
         cmd.args([
             "exec",
+            "-m",
+            &model,
             "--skip-git-repo-check",
             "reply with only the word OK",
         ]);
         let command_line = format!(
-            "CODEX_HOME={} {} exec --skip-git-repo-check \"reply with only the word OK\"",
+            "CODEX_HOME={} {} exec -m {} --skip-git-repo-check \"reply with only the word OK\"",
             codex_home.display(),
-            exe.display()
+            exe.display(),
+            model
         );
         match run_with_timeout(&mut cmd, Duration::from_secs(180)) {
             Ok((code, text)) => {

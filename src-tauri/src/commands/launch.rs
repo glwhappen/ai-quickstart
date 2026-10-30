@@ -5,17 +5,21 @@ use super::detect;
 
 /// 生成一个启动脚本，再交给系统终端打开：
 /// 这样不用在命令里拼一堆引号，Windows 的 cmd 与 macOS/Linux 的 shell 行为都可控。
-fn write_launcher(exe: &PathBuf, codex_home: &PathBuf) -> Result<PathBuf, String> {
+fn write_launcher(exe: &PathBuf, codex_home: &PathBuf, model: &str) -> Result<PathBuf, String> {
     let dir = super::data_root();
     std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败：{e}"))?;
 
     #[cfg(target_os = "windows")]
     {
         let path = dir.join("launch-codex.cmd");
+        // 有参数时按参数跑（便于自检 --version），否则显式带上 -m：
+        // Codex 的 TUI **不认 config.toml 里的 model**（未知模型会退回它内置默认 gpt-5.5，
+        // 导致 our gateway 报 503 no available channel），只有 `codex exec` 认。所以启动时必须显式指定。
         let script = format!(
-            "@echo off\r\nset \"CODEX_HOME={}\"\r\ncd /d \"%USERPROFILE%\"\r\n\"{}\"\r\n",
+            "@echo off\r\nset \"CODEX_HOME={}\"\r\ncd /d \"%USERPROFILE%\"\r\nif \"%~1\"==\"\" ( \"{exe}\" -m {model} ) else ( \"{exe}\" %* )\r\n",
             codex_home.display(),
-            exe.display()
+            exe = exe.display(),
+            model = model,
         );
         std::fs::write(&path, script).map_err(|e| format!("写入启动脚本失败：{e}"))?;
         Ok(path)
@@ -23,10 +27,15 @@ fn write_launcher(exe: &PathBuf, codex_home: &PathBuf) -> Result<PathBuf, String
     #[cfg(not(target_os = "windows"))]
     {
         let path = dir.join("launch-codex.sh");
+        // 带参数时按参数跑（便于自检 `--version`）；否则显式给 `-m`：
+        // Codex 的 TUI 不认 config.toml 里的 model（未知模型会退回它内置的默认模型，
+        // 撞出 503 no available channel），`codex exec` 才认。启动这一步必须显式指定。
         let script = format!(
-            "#!/bin/sh\n# 由「Codex 快速配置」生成\nexport CODEX_HOME='{}'\ncd \"$HOME\"\nexec '{}'\n",
+            "#!/bin/sh\n# 由「Codex 快速配置」生成\nexport CODEX_HOME='{}'\ncd \"$HOME\"\nif [ \"$#\" -gt 0 ]; then\n  exec '{}' \"$@\"\nfi\nexec '{}' -m '{}'\n",
             codex_home.display(),
-            exe.display()
+            exe.display(),
+            exe.display(),
+            model
         );
         std::fs::write(&path, script).map_err(|e| format!("写入启动脚本失败：{e}"))?;
         {
@@ -37,13 +46,24 @@ fn write_launcher(exe: &PathBuf, codex_home: &PathBuf) -> Result<PathBuf, String
     }
 }
 
+/// 配置里写的模型（没有就退回默认），启动时显式传给 Codex。
+fn configured_model() -> String {
+    let path = super::config_path();
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| t.parse::<toml_edit::DocumentMut>().ok())
+        .and_then(|d| d.get("model").and_then(|i| i.as_str()).map(|s| s.to_string()))
+        .unwrap_or_else(|| super::config::DEFAULT_MODEL.to_string())
+}
+
 /// 「启动 Codex」：带上我们的 CODEX_HOME，在用户主目录里开一个终端窗口跑 Codex。
 pub fn launch_codex() -> Result<String, String> {
     let Some((ver, exe)) = detect::prepared_version() else {
         return Err("Codex 还没准备好，请先点上面的准备按钮".to_string());
     };
     let home = super::codex_home();
-    let launcher = write_launcher(&exe, &home)?;
+    let model = configured_model();
+    let launcher = write_launcher(&exe, &home, &model)?;
 
     #[cfg(target_os = "windows")]
     {
